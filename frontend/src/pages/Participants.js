@@ -1,0 +1,142 @@
+import { useEffect, useState, useRef } from 'react';
+import { Link } from 'react-router-dom';
+import axios from 'axios';
+import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { ArrowLeft, Plus, Trash, PencilSimple, Check, X, UploadSimple } from '@phosphor-icons/react';
+
+const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
+
+export default function Participants() {
+  const [participants, setParticipants] = useState([]);
+  const [newName, setNewName] = useState('');
+  const [editing, setEditing] = useState(null);
+  const [editName, setEditName] = useState('');
+  const { token } = useAuth();
+  const headers = { Authorization: `Bearer ${token}` };
+  const fileRef = useRef();
+
+  useEffect(() => {
+    axios.get(`${API}/api/participants`).then(r => setParticipants(r.data)).catch(() => {});
+  }, []);
+
+  async function addParticipant(e) {
+    e.preventDefault();
+    if (!newName.trim()) return;
+    try {
+      const { data } = await axios.post(`${API}/api/participants`, { name: newName.trim() }, { headers });
+      setParticipants(prev => [...prev, data]);
+      setNewName('');
+    } catch {
+      toast.error('Kunne ikke tilføje spiller');
+    }
+  }
+
+  async function saveEdit(id) {
+    if (!editName.trim()) return;
+    try {
+      const { data } = await axios.put(`${API}/api/participants/${id}`, { name: editName.trim() }, { headers });
+      setParticipants(prev => prev.map(p => p.id === id ? data : p));
+      setEditing(null);
+    } catch {
+      toast.error('Kunne ikke opdatere');
+    }
+  }
+
+  async function deleteParticipant(id) {
+    try {
+      await axios.delete(`${API}/api/participants/${id}`, { headers });
+      setParticipants(prev => prev.filter(p => p.id !== id));
+    } catch {
+      toast.error('Kunne ikke slette');
+    }
+  }
+
+  async function uploadCsv(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const form = new FormData();
+    form.append('file', file);
+    try {
+      const { data } = await axios.post(`${API}/api/participants/upload-csv`, form, {
+        headers: { ...headers, 'Content-Type': 'multipart/form-data' },
+      });
+      toast.success(data.message);
+      const { data: updated } = await axios.get(`${API}/api/participants`);
+      setParticipants(updated);
+    } catch {
+      toast.error('Kunne ikke importere CSV');
+    }
+    e.target.value = '';
+  }
+
+  return (
+    <div className="min-h-screen bg-[#0A0A0A] text-white">
+      <header className="border-b border-[#1A1A1A] px-6 py-4 flex items-center justify-between">
+        <Link to="/admin/panel" className="flex items-center gap-1 text-gray-500 hover:text-white text-sm transition-colors">
+          <ArrowLeft size={14} /> Panel
+        </Link>
+        <span className="font-display text-lg font-bold uppercase tracking-wide">Spillerpulje</span>
+        <div className="w-16" />
+      </header>
+
+      <main className="max-w-lg mx-auto px-6 py-8">
+        <div className="flex items-center justify-between mb-6">
+          <p className="text-sm text-gray-400">{participants.length} spillere</p>
+          <div className="flex gap-2">
+            <input type="file" accept=".csv" ref={fileRef} onChange={uploadCsv} className="hidden" />
+            <Button variant="outline" size="sm" onClick={() => fileRef.current.click()}>
+              <UploadSimple size={13} /> Import CSV
+            </Button>
+          </div>
+        </div>
+
+        <form onSubmit={addParticipant} className="flex gap-2 mb-6">
+          <Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Spillernavn" autoFocus />
+          <Button type="submit" size="icon" className="shrink-0"><Plus size={16} /></Button>
+        </form>
+
+        <div className="space-y-1">
+          {participants.map(p => (
+            <div key={p.id} className="flex items-center gap-2 px-3 py-2 bg-[#111] border border-[#1A1A1A]">
+              {editing === p.id ? (
+                <>
+                  <Input
+                    value={editName}
+                    onChange={e => setEditName(e.target.value)}
+                    className="h-7 text-sm flex-1"
+                    autoFocus
+                    onKeyDown={e => { if (e.key === 'Enter') saveEdit(p.id); if (e.key === 'Escape') setEditing(null); }}
+                  />
+                  <button onClick={() => saveEdit(p.id)} className="text-[#D1F441] hover:opacity-70"><Check size={14} /></button>
+                  <button onClick={() => setEditing(null)} className="text-gray-500 hover:text-white"><X size={14} /></button>
+                </>
+              ) : (
+                <>
+                  <span className="flex-1 text-sm">{p.name}</span>
+                  {p.note && <span className="text-xs text-gray-500">{p.note}</span>}
+                  <button onClick={() => { setEditing(p.id); setEditName(p.name); }} className="text-gray-600 hover:text-white transition-colors">
+                    <PencilSimple size={13} />
+                  </button>
+                  <button onClick={() => deleteParticipant(p.id)} className="text-gray-600 hover:text-red-400 transition-colors">
+                    <Trash size={13} />
+                  </button>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {participants.length === 0 && (
+          <p className="text-center text-gray-600 py-8">Ingen spillere endnu</p>
+        )}
+
+        <p className="text-xs text-gray-600 mt-6">
+          CSV-format: navn/name kolonne krævet, point/points og note/bemærkning er valgfrie.
+        </p>
+      </main>
+    </div>
+  );
+}

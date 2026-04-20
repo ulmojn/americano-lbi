@@ -1,0 +1,73 @@
+// Database connection and schema setup for MySQL
+const mysql = require('mysql2/promise');
+require('dotenv').config();
+
+const pool = mysql.createPool({
+  host: process.env.MYSQL_HOST || 'localhost',
+  user: process.env.MYSQL_USER || 'root',
+  password: process.env.MYSQL_PASSWORD || '',
+  database: process.env.MYSQL_DATABASE || 'padel_tournament',
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
+});
+
+// Initialize database tables
+async function initDatabase() {
+  const connection = await pool.getConnection();
+  
+  try {
+    // Participants table
+    await connection.execute(`
+      CREATE TABLE IF NOT EXISTS participants (
+        id VARCHAR(36) PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        points INT DEFAULT 0,
+        note TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('✓ Participants table ready');
+
+    // Tournaments table
+    await connection.execute(`
+      CREATE TABLE IF NOT EXISTS tournaments (
+        id VARCHAR(36) PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        tournament_type ENUM('americano', 'mexicano', 'winners_court') NOT NULL,
+        courts INT NOT NULL,
+        players JSON NOT NULL,
+        status ENUM('active', 'completed') DEFAULT 'active',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('✓ Tournaments table ready');
+
+    // Matches table
+    await connection.execute(`
+      CREATE TABLE IF NOT EXISTS matches (
+        id VARCHAR(36) PRIMARY KEY,
+        tournament_id VARCHAR(36) NOT NULL,
+        round INT NOT NULL,
+        court INT NOT NULL,
+        team1 JSON NOT NULL,
+        team2 JSON NOT NULL,
+        team1_score INT DEFAULT NULL,
+        team2_score INT DEFAULT NULL,
+        completed BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (tournament_id) REFERENCES tournaments(id) ON DELETE CASCADE
+      )
+    `);
+    console.log('✓ Matches table ready');
+
+    console.log('Database initialized successfully!');
+  } catch (error) {
+    console.error('Error initializing database:', error.message);
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
+module.exports = { pool, initDatabase };

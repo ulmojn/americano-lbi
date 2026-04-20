@@ -1,0 +1,219 @@
+import { useState, useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import axios from 'axios';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { ArrowLeft, Plus, X, Check } from '@phosphor-icons/react';
+
+const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
+
+const TYPES = [
+  { value: 'americano', label: 'Americano', desc: 'Alle kampe genereres på forhånd' },
+  { value: 'mexicano', label: 'Mexicano', desc: 'Næste runde baseres på stilling' },
+  { value: 'winners_court', label: 'Winners Court', desc: 'Vindere avancerer til bedste bane' },
+];
+
+export default function TournamentSetup() {
+  const [name, setName] = useState('');
+  const [type, setType] = useState('americano');
+  const [courts, setCourts] = useState(1);
+  const [pointsPerGame, setPointsPerGame] = useState(16);
+  const [customPoints, setCustomPoints] = useState('');
+  const [participants, setParticipants] = useState([]);
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [newPlayerInput, setNewPlayerInput] = useState('');
+  const [newPlayers, setNewPlayers] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    axios.get(`${API}/api/participants`).then(r => setParticipants(r.data)).catch(() => {});
+  }, []);
+
+  function toggleParticipant(id) {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  async function addNewPlayer(e) {
+    e.preventDefault();
+    const playerName = newPlayerInput.trim();
+    if (!playerName) return;
+    if (participants.some(p => p.name.toLowerCase() === playerName.toLowerCase()) ||
+        newPlayers.some(p => p.toLowerCase() === playerName.toLowerCase())) {
+      toast.error('Spiller eksisterer allerede');
+      return;
+    }
+    try {
+      const { data } = await axios.post(`${API}/api/participants`, { name: playerName });
+      setParticipants(prev => [...prev, data]);
+      setSelectedIds(prev => new Set([...prev, data.id]));
+      setNewPlayerInput('');
+    } catch {
+      // Fallback: add as manual player if API fails
+      setNewPlayers(prev => [...prev, playerName]);
+      setNewPlayerInput('');
+    }
+  }
+
+  function removeNewPlayer(name) {
+    setNewPlayers(prev => prev.filter(n => n !== name));
+  }
+
+  const totalPlayers = selectedIds.size + newPlayers.length;
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!name.trim()) return toast.error('Angiv et turneringsnavn');
+    if (totalPlayers < 4) return toast.error('Mindst 4 spillere kræves');
+    setLoading(true);
+    try {
+      const resolvedPoints = pointsPerGame === 'custom' ? parseInt(customPoints) || 16 : pointsPerGame;
+      const { data } = await axios.post(`${API}/api/tournaments`, {
+        name: name.trim(),
+        tournament_type: type,
+        courts,
+        player_ids: [...selectedIds],
+        manual_players: newPlayers,
+        points_per_game: resolvedPoints,
+      });
+      toast.success('Turnering oprettet!');
+      navigate(`/tournament/${data.id}/manage`);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Kunne ikke oprette turnering');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-[#0A0A0A] text-white">
+      <div className="p-6">
+        <Link to="/" className="flex items-center gap-1 text-gray-500 hover:text-white text-sm transition-colors">
+          <ArrowLeft size={14} /> Tilbage
+        </Link>
+      </div>
+
+      <form onSubmit={handleSubmit} className="max-w-lg mx-auto px-6 pb-12 space-y-8">
+        <h1 className="font-display text-3xl font-bold uppercase tracking-wide">Ny turnering</h1>
+
+        {/* Turnerings info */}
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">Turneringsnavn</label>
+            <Input value={name} onChange={e => setName(e.target.value)} placeholder="f.eks. Lørdag Padel" autoFocus />
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-400 mb-2">Format</label>
+            <div className="space-y-2">
+              {TYPES.map(t => (
+                <button key={t.value} type="button" onClick={() => setType(t.value)}
+                  className={`w-full text-left p-3 border transition-colors ${type === t.value ? 'border-[#D1F441] bg-[#D1F441]/5' : 'border-[#1A1A1A] hover:border-[#333]'}`}>
+                  <div className="font-medium text-sm">{t.label}</div>
+                  <div className="text-xs text-gray-500 mt-0.5">{t.desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">Antal baner</label>
+            <Input type="number" min="1" max="10" value={courts} onChange={e => setCourts(+e.target.value)} className="w-24" />
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-400 mb-2">Point per kamp</label>
+            <div className="flex gap-2 flex-wrap">
+              {[16, 24, 32].map(p => (
+                <button key={p} type="button"
+                  onClick={() => { setPointsPerGame(p); setCustomPoints(''); }}
+                  className={`px-4 py-2 text-sm font-mono border transition-colors ${pointsPerGame === p ? 'border-[#D1F441] bg-[#D1F441]/10 text-[#D1F441]' : 'border-[#1A1A1A] text-gray-400 hover:border-[#333]'}`}>
+                  {p}
+                </button>
+              ))}
+              <button type="button"
+                onClick={() => setPointsPerGame('custom')}
+                className={`px-4 py-2 text-sm font-mono border transition-colors ${pointsPerGame === 'custom' ? 'border-[#D1F441] bg-[#D1F441]/10 text-[#D1F441]' : 'border-[#1A1A1A] text-gray-400 hover:border-[#333]'}`}>
+                Andet
+              </button>
+            </div>
+            {pointsPerGame === 'custom' && (
+              <Input
+                type="number" min="1" max="999"
+                value={customPoints}
+                onChange={e => setCustomPoints(e.target.value)}
+                placeholder="Antal point"
+                className="mt-2 w-32"
+                autoFocus
+              />
+            )}
+          </div>
+        </div>
+
+        {/* Spillere */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <label className="text-sm text-gray-400">Spillere</label>
+            <span className={`text-xs font-medium ${totalPlayers >= 4 ? 'text-[#D1F441]' : 'text-gray-600'}`}>
+              {totalPlayers} valgt {courts > 0 && `(min. ${courts * 4})`}
+            </span>
+          </div>
+
+          {/* Tilføj ny spiller */}
+          <div className="flex gap-2 mb-3">
+            <Input
+              value={newPlayerInput}
+              onChange={e => setNewPlayerInput(e.target.value)}
+              placeholder="Skriv spillernavn og tryk +"
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addNewPlayer(e); } }}
+            />
+            <Button type="button" size="icon" className="shrink-0" onClick={addNewPlayer}>
+              <Plus size={16} />
+            </Button>
+          </div>
+
+          {/* Manuel tilføjede (fallback) */}
+          {newPlayers.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-3">
+              {newPlayers.map((n, i) => (
+                <span key={i} className="flex items-center gap-1 bg-[#D1F441]/10 border border-[#D1F441]/30 px-2 py-1 text-sm text-[#D1F441]">
+                  {n}
+                  <button type="button" onClick={() => removeNewPlayer(n)} className="opacity-60 hover:opacity-100">
+                    <X size={12} />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Spillerpulje */}
+          {participants.length > 0 && (
+            <>
+              <p className="text-xs text-gray-600 mb-2">Eller vælg fra eksisterende spillere:</p>
+              <div className="grid grid-cols-2 gap-1 max-h-48 overflow-y-auto">
+                {participants.map(p => (
+                  <button key={p.id} type="button" onClick={() => toggleParticipant(p.id)}
+                    className={`flex items-center gap-2 px-3 py-2 text-sm border transition-colors text-left ${selectedIds.has(p.id) ? 'border-[#D1F441] bg-[#D1F441]/5 text-white' : 'border-[#1A1A1A] text-gray-400 hover:border-[#333]'}`}>
+                    <div className={`w-3.5 h-3.5 border rounded-sm flex items-center justify-center shrink-0 ${selectedIds.has(p.id) ? 'bg-[#D1F441] border-[#D1F441]' : 'border-[#444]'}`}>
+                      {selectedIds.has(p.id) && <Check size={10} className="text-black" weight="bold" />}
+                    </div>
+                    {p.name}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
+        <Button type="submit" className="w-full" disabled={loading || totalPlayers < 4}>
+          {loading ? 'Opretter...' : 'Opret turnering & generer kampe'}
+        </Button>
+      </form>
+    </div>
+  );
+}
