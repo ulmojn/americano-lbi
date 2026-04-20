@@ -37,10 +37,18 @@ async function initDatabase() {
         tournament_type ENUM('americano', 'mexicano', 'winners_court') NOT NULL,
         courts INT NOT NULL,
         players JSON NOT NULL,
+        points_per_game INT DEFAULT 16,
         status ENUM('active', 'completed') DEFAULT 'active',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    // Migration: tilføj points_per_game hvis den mangler (eksisterende databaser)
+    try {
+      await connection.execute(`ALTER TABLE tournaments ADD COLUMN points_per_game INT DEFAULT 16`);
+      console.log('✓ Migreret: points_per_game kolonne tilføjet');
+    } catch (e) {
+      if (e.code !== 'ER_DUP_FIELDNAME') throw e;
+    }
     console.log('✓ Tournaments table ready');
 
     // Matches table
