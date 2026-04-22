@@ -25,9 +25,11 @@ export default function TournamentSetup() {
   const [newPlayerInput, setNewPlayerInput] = useState('');
   const [newPlayers, setNewPlayers] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const inputRef = useRef();
+  const inputWrapperRef = useRef();
   const dropdownRef = useRef();
 
   useEffect(() => {
@@ -37,13 +39,31 @@ export default function TournamentSetup() {
   useEffect(() => {
     function handleClickOutside(e) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target) &&
-          inputRef.current && !inputRef.current.contains(e.target)) {
+          inputWrapperRef.current && !inputWrapperRef.current.contains(e.target)) {
         setShowSuggestions(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  function updateDropdownPos() {
+    if (inputWrapperRef.current) {
+      const rect = inputWrapperRef.current.getBoundingClientRect();
+      setDropdownPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+    }
+  }
+
+  useEffect(() => {
+    if (!showSuggestions) return;
+    updateDropdownPos();
+    window.addEventListener('scroll', updateDropdownPos, true);
+    window.addEventListener('resize', updateDropdownPos);
+    return () => {
+      window.removeEventListener('scroll', updateDropdownPos, true);
+      window.removeEventListener('resize', updateDropdownPos);
+    };
+  }, [showSuggestions]);
 
   const suggestions = newPlayerInput.trim().length > 0
     ? participants.filter(p =>
@@ -195,8 +215,8 @@ export default function TournamentSetup() {
           </div>
 
           {/* Autocomplete input */}
-          <div className="relative">
-            <div className="flex gap-2">
+          <div>
+            <div className="flex gap-2" ref={inputWrapperRef}>
               <div className="relative flex-1">
                 <MagnifyingGlass size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
                 <Input
@@ -217,33 +237,35 @@ export default function TournamentSetup() {
               </Button>
             </div>
 
-            {/* Suggestions — fast højde så siden ikke hopper */}
-            {showSuggestions && (
-              <div ref={dropdownRef} className="mt-1 bg-[#111] border border-[#2A2A2A] overflow-y-auto max-h-44">
-                {suggestions.map(p => (
-                  <button key={p.id} type="button"
-                    onMouseDown={e => { e.preventDefault(); selectParticipant(p); }}
-                    className="w-full text-left px-4 py-3 text-sm text-gray-300 hover:bg-[#1A1A1A] hover:text-white transition-colors flex items-center gap-2 border-b border-[#1A1A1A] last:border-0">
-                    {p.name}
-                  </button>
-                ))}
-                {newPlayerInput.trim() && !participants.some(p => p.name.toLowerCase() === newPlayerInput.trim().toLowerCase()) && (
-                  <button type="button"
-                    onMouseDown={e => { e.preventDefault(); addNewPlayer(); }}
-                    className="w-full text-left px-4 py-3 text-sm text-[#D1F441] hover:bg-[#1A1A1A] transition-colors flex items-center gap-2">
-                    <Plus size={12} />
-                    Opret "{newPlayerInput.trim()}"
-                  </button>
-                )}
-                {suggestions.length === 0 && !newPlayerInput.trim() && (
-                  <p className="px-4 py-3 text-sm text-gray-600">Skriv et navn...</p>
-                )}
-                {suggestions.length === 0 && newPlayerInput.trim() && participants.some(p => p.name.toLowerCase() === newPlayerInput.trim().toLowerCase()) && (
-                  <p className="px-4 py-3 text-sm text-gray-600">Spiller allerede tilføjet</p>
-                )}
-              </div>
-            )}
           </div>
+
+          {/* Suggestions — position:fixed så layout aldrig påvirkes */}
+          {showSuggestions && (
+            <div
+              ref={dropdownRef}
+              style={{ position: 'fixed', top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width, zIndex: 9999 }}
+              className="bg-[#111] border border-[#2A2A2A] shadow-xl overflow-y-auto max-h-44"
+            >
+              {suggestions.map(p => (
+                <button key={p.id} type="button"
+                  onMouseDown={e => { e.preventDefault(); selectParticipant(p); }}
+                  className="w-full text-left px-4 py-3 text-sm text-gray-300 active:bg-[#1A1A1A] hover:bg-[#1A1A1A] hover:text-white transition-colors border-b border-[#1A1A1A] last:border-0">
+                  {p.name}
+                </button>
+              ))}
+              {newPlayerInput.trim() && !participants.some(p => p.name.toLowerCase() === newPlayerInput.trim().toLowerCase()) && (
+                <button type="button"
+                  onMouseDown={e => { e.preventDefault(); addNewPlayer(); }}
+                  className="w-full text-left px-4 py-3 text-sm text-[#D1F441] active:bg-[#1A1A1A] hover:bg-[#1A1A1A] transition-colors flex items-center gap-2">
+                  <Plus size={12} />
+                  Opret "{newPlayerInput.trim()}"
+                </button>
+              )}
+              {suggestions.length === 0 && !newPlayerInput.trim() && (
+                <p className="px-4 py-3 text-sm text-gray-600">Skriv et navn...</p>
+              )}
+            </div>
+          )}
 
           {/* Valgte spillere som chips — under inputtet så siden ikke hopper */}
           {(selectedIds.size > 0 || newPlayers.length > 0) && (
