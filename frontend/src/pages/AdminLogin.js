@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, Navigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Trophy, ArrowLeft } from '@phosphor-icons/react';
+import { ArrowLeft } from '@phosphor-icons/react';
+import LbiLogo from '@/components/LbiLogo';
 
 const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
 
@@ -16,8 +17,7 @@ export default function AdminLogin() {
   const navigate = useNavigate();
 
   if (isAdmin) {
-    navigate('/admin/panel');
-    return null;
+    return <Navigate to="/admin/panel" replace />;
   }
 
   async function handleSubmit(e) {
@@ -44,7 +44,7 @@ export default function AdminLogin() {
       <div className="flex-1 flex items-center justify-center px-6">
         <div className="w-full max-w-sm">
           <div className="flex items-center gap-2 mb-8">
-            <Trophy size={28} className="text-[#D1F441]" weight="fill" />
+            <LbiLogo size={32} />
             <span className="font-display text-2xl font-bold tracking-wider uppercase">Admin Login</span>
           </div>
           <form onSubmit={handleSubmit} className="space-y-4">

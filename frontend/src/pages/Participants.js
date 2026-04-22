@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Plus, Trash, PencilSimple, Check, X, UploadSimple } from '@phosphor-icons/react';
+import { ArrowLeft, Plus, Trash, PencilSimple, Check, X, UploadSimple, Warning } from '@phosphor-icons/react';
 
 const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
 
@@ -14,6 +14,7 @@ export default function Participants() {
   const [newName, setNewName] = useState('');
   const [editing, setEditing] = useState(null);
   const [editName, setEditName] = useState('');
+  const [confirmDeleteAll, setConfirmDeleteAll] = useState(false);
   const { token } = useAuth();
   const headers = { Authorization: `Bearer ${token}` };
   const fileRef = useRef();
@@ -54,6 +55,17 @@ export default function Participants() {
     }
   }
 
+  async function deleteAll() {
+    try {
+      await axios.delete(`${API}/api/participants`, { headers });
+      setParticipants([]);
+      setConfirmDeleteAll(false);
+      toast.success('Alle spillere slettet');
+    } catch {
+      toast.error('Kunne ikke slette spillere');
+    }
+  }
+
   async function uploadCsv(e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -90,8 +102,28 @@ export default function Participants() {
             <Button variant="outline" size="sm" onClick={() => fileRef.current.click()}>
               <UploadSimple size={13} /> Import CSV
             </Button>
+            {participants.length > 0 && (
+              <Button variant="outline" size="sm" onClick={() => setConfirmDeleteAll(true)}
+                className="border-red-900 text-red-400 hover:bg-red-900/20 hover:text-red-300">
+                <Trash size={13} /> Slet alle
+              </Button>
+            )}
           </div>
         </div>
+
+        {confirmDeleteAll && (
+          <div className="mb-6 p-4 border border-red-900 bg-red-950/30 flex items-start gap-3">
+            <Warning size={18} className="text-red-400 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm text-red-300 font-medium mb-1">Slet alle {participants.length} spillere?</p>
+              <p className="text-xs text-gray-500 mb-3">Dette kan ikke fortrydes.</p>
+              <div className="flex gap-2">
+                <Button size="sm" onClick={deleteAll} className="bg-red-600 hover:bg-red-700 text-white">Ja, slet alle</Button>
+                <Button size="sm" variant="outline" onClick={() => setConfirmDeleteAll(false)}>Annuller</Button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <form onSubmit={addParticipant} className="flex gap-2 mb-6">
           <Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Spillernavn" autoFocus />

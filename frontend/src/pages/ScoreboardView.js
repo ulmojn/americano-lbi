@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
-import { Trophy, ArrowLeft } from '@phosphor-icons/react';
+import { ArrowLeft, Wrench } from '@phosphor-icons/react';
+import LbiLogo from '@/components/LbiLogo';
 
 const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
 const TYPE_LABELS = { americano: 'Americano', mexicano: 'Mexicano', winners_court: 'Winners Court' };
@@ -46,7 +47,13 @@ export default function ScoreboardView() {
           <div className="font-display text-lg font-bold uppercase tracking-wide">{tournament.name}</div>
           <div className="text-xs text-gray-500">{TYPE_LABELS[tournament.tournament_type]}</div>
         </div>
-        <div className="w-20" />
+        {tournament.status === 'active' ? (
+          <Link to={`/tournament/${id}/manage`} className="flex items-center gap-1 text-sm text-gray-500 hover:text-[#D1F441] transition-colors w-20 justify-end">
+            <Wrench size={14} /> Administrer
+          </Link>
+        ) : (
+          <div className="w-20" />
+        )}
       </header>
 
       <div className="max-w-2xl mx-auto px-6 py-8 space-y-8">
@@ -87,7 +94,7 @@ export default function ScoreboardView() {
                   i === 0 ? 'bg-[#D1F441]/5 border-[#D1F441]/20' : 'bg-[#111] border-[#1A1A1A]'
                 }`}>
                   <span className={`w-6 text-sm font-mono font-bold ${i === 0 ? 'text-[#D1F441]' : 'text-gray-600'}`}>{p.rank}</span>
-                  {i === 0 && <Trophy size={14} className="text-[#D1F441]" weight="fill" />}
+                  {i === 0 && <LbiLogo size={16} />}
                   <span className="flex-1 font-medium">{p.name}</span>
                   <div className="text-right">
                     <div className={`font-display text-xl font-bold ${i === 0 ? 'text-[#D1F441]' : 'text-white'}`}>{p.points}</div>

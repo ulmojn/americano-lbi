@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Plus, X, Check } from '@phosphor-icons/react';
+import { ArrowLeft, Plus, X, Check, MagnifyingGlass } from '@phosphor-icons/react';
 
 const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
 
@@ -24,28 +24,57 @@ export default function TournamentSetup() {
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [newPlayerInput, setNewPlayerInput] = useState('');
   const [newPlayers, setNewPlayers] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const inputRef = useRef();
+  const dropdownRef = useRef();
 
   useEffect(() => {
     axios.get(`${API}/api/participants`).then(r => setParticipants(r.data)).catch(() => {});
   }, []);
 
-  function toggleParticipant(id) {
-    setSelectedIds(prev => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target) &&
+          inputRef.current && !inputRef.current.contains(e.target)) {
+        setShowSuggestions(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const suggestions = newPlayerInput.trim().length > 0
+    ? participants.filter(p =>
+        p.name.toLowerCase().includes(newPlayerInput.toLowerCase()) &&
+        !selectedIds.has(p.id)
+      )
+    : [];
+
+  function selectParticipant(p) {
+    setSelectedIds(prev => new Set([...prev, p.id]));
+    setNewPlayerInput('');
+    setShowSuggestions(false);
+    inputRef.current?.focus();
+  }
+
+  function deselectParticipant(id) {
+    setSelectedIds(prev => { const next = new Set(prev); next.delete(id); return next; });
   }
 
   async function addNewPlayer(e) {
-    e.preventDefault();
+    if (e?.preventDefault) e.preventDefault();
     const playerName = newPlayerInput.trim();
     if (!playerName) return;
-    if (participants.some(p => p.name.toLowerCase() === playerName.toLowerCase()) ||
-        newPlayers.some(p => p.toLowerCase() === playerName.toLowerCase())) {
-      toast.error('Spiller eksisterer allerede');
+
+    const existing = participants.find(p => p.name.toLowerCase() === playerName.toLowerCase());
+    if (existing) {
+      selectParticipant(existing);
+      return;
+    }
+    if (newPlayers.some(p => p.toLowerCase() === playerName.toLowerCase())) {
+      toast.error('Spiller allerede tilføjet');
       return;
     }
     try {
@@ -53,10 +82,11 @@ export default function TournamentSetup() {
       setParticipants(prev => [...prev, data]);
       setSelectedIds(prev => new Set([...prev, data.id]));
       setNewPlayerInput('');
+      setShowSuggestions(false);
     } catch {
-      // Fallback: add as manual player if API fails
       setNewPlayers(prev => [...prev, playerName]);
       setNewPlayerInput('');
+      setShowSuggestions(false);
     }
   }
 
@@ -164,50 +194,69 @@ export default function TournamentSetup() {
             </span>
           </div>
 
-          {/* Tilføj ny spiller */}
-          <div className="flex gap-2 mb-3">
-            <Input
-              value={newPlayerInput}
-              onChange={e => setNewPlayerInput(e.target.value)}
-              placeholder="Skriv spillernavn og tryk +"
-              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addNewPlayer(e); } }}
-            />
-            <Button type="button" size="icon" className="shrink-0" onClick={addNewPlayer}>
-              <Plus size={16} />
-            </Button>
-          </div>
-
-          {/* Manuel tilføjede (fallback) */}
-          {newPlayers.length > 0 && (
+          {/* Valgte spillere som chips */}
+          {(selectedIds.size > 0 || newPlayers.length > 0) && (
             <div className="flex flex-wrap gap-2 mb-3">
+              {participants.filter(p => selectedIds.has(p.id)).map(p => (
+                <span key={p.id} className="flex items-center gap-1 bg-[#D1F441]/10 border border-[#D1F441]/30 px-2 py-1 text-sm text-[#D1F441]">
+                  {p.name}
+                  <button type="button" onClick={() => deselectParticipant(p.id)} className="opacity-60 hover:opacity-100"><X size={12} /></button>
+                </span>
+              ))}
               {newPlayers.map((n, i) => (
                 <span key={i} className="flex items-center gap-1 bg-[#D1F441]/10 border border-[#D1F441]/30 px-2 py-1 text-sm text-[#D1F441]">
                   {n}
-                  <button type="button" onClick={() => removeNewPlayer(n)} className="opacity-60 hover:opacity-100">
-                    <X size={12} />
-                  </button>
+                  <button type="button" onClick={() => removeNewPlayer(n)} className="opacity-60 hover:opacity-100"><X size={12} /></button>
                 </span>
               ))}
             </div>
           )}
 
-          {/* Spillerpulje */}
-          {participants.length > 0 && (
-            <>
-              <p className="text-xs text-gray-600 mb-2">Eller vælg fra eksisterende spillere:</p>
-              <div className="grid grid-cols-2 gap-1 max-h-48 overflow-y-auto">
-                {participants.map(p => (
-                  <button key={p.id} type="button" onClick={() => toggleParticipant(p.id)}
-                    className={`flex items-center gap-2 px-3 py-2 text-sm border transition-colors text-left ${selectedIds.has(p.id) ? 'border-[#D1F441] bg-[#D1F441]/5 text-white' : 'border-[#1A1A1A] text-gray-400 hover:border-[#333]'}`}>
-                    <div className={`w-3.5 h-3.5 border rounded-sm flex items-center justify-center shrink-0 ${selectedIds.has(p.id) ? 'bg-[#D1F441] border-[#D1F441]' : 'border-[#444]'}`}>
-                      {selectedIds.has(p.id) && <Check size={10} className="text-black" weight="bold" />}
-                    </div>
+          {/* Autocomplete input */}
+          <div className="relative">
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <MagnifyingGlass size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+                <Input
+                  ref={inputRef}
+                  value={newPlayerInput}
+                  onChange={e => { setNewPlayerInput(e.target.value); setShowSuggestions(true); }}
+                  onFocus={() => setShowSuggestions(true)}
+                  placeholder="Søg eller skriv nyt navn..."
+                  className="pl-8"
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') { e.preventDefault(); if (suggestions.length === 1) selectParticipant(suggestions[0]); else addNewPlayer(e); }
+                    if (e.key === 'Escape') setShowSuggestions(false);
+                  }}
+                />
+              </div>
+              <Button type="button" size="icon" className="shrink-0" onClick={addNewPlayer}>
+                <Plus size={16} />
+              </Button>
+            </div>
+
+            {/* Dropdown */}
+            {showSuggestions && suggestions.length > 0 && (
+              <div ref={dropdownRef} className="absolute z-10 left-0 right-10 mt-1 bg-[#111] border border-[#2A2A2A] shadow-xl">
+                {suggestions.map(p => (
+                  <button key={p.id} type="button"
+                    onMouseDown={e => { e.preventDefault(); selectParticipant(p); }}
+                    className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-[#1A1A1A] hover:text-white transition-colors flex items-center gap-2">
+                    <Check size={12} className="text-[#D1F441] opacity-0" />
                     {p.name}
                   </button>
                 ))}
+                {newPlayerInput.trim() && !participants.some(p => p.name.toLowerCase() === newPlayerInput.trim().toLowerCase()) && (
+                  <button type="button"
+                    onMouseDown={e => { e.preventDefault(); addNewPlayer(); }}
+                    className="w-full text-left px-4 py-2.5 text-sm text-gray-500 hover:bg-[#1A1A1A] transition-colors border-t border-[#1A1A1A] flex items-center gap-2">
+                    <Plus size={12} className="text-[#D1F441]" />
+                    Opret "{newPlayerInput.trim()}"
+                  </button>
+                )}
               </div>
-            </>
-          )}
+            )}
+          </div>
         </div>
 
         <Button type="submit" className="w-full" disabled={loading || totalPlayers < 4}>

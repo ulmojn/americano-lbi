@@ -121,6 +121,16 @@ app.put('/api/participants/:id', requireAdmin, async (req, res) => {
   }
 });
 
+app.delete('/api/participants', requireAdmin, async (req, res) => {
+  try {
+    await pool.execute('DELETE FROM participants');
+    res.json({ message: 'Alle spillere slettet' });
+  } catch (err) {
+    console.error('Error deleting all participants:', err);
+    res.status(500).json({ detail: 'Kunne ikke slette spillere' });
+  }
+});
+
 app.delete('/api/participants/:id', requireAdmin, async (req, res) => {
   const { id } = req.params;
   try {
@@ -407,6 +417,20 @@ app.get('/api/tournaments/:id', async (req, res) => {
     }));
 
     res.json(tournament);
+  } catch (err) {
+    res.status(500).json({ detail: 'Database fejl' });
+  }
+});
+
+app.patch('/api/tournaments/:id/complete', requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const [result] = await pool.execute(
+      "UPDATE tournaments SET status = 'completed' WHERE id = ? AND status = 'active'",
+      [id]
+    );
+    if (result.affectedRows === 0) return res.status(404).json({ detail: 'Turnering ikke fundet eller allerede afsluttet' });
+    res.json({ message: 'Turnering afsluttet' });
   } catch (err) {
     res.status(500).json({ detail: 'Database fejl' });
   }

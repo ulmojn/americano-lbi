@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
-import { ArrowLeft, ListBullets, ChartBar, Users, Check, X, PencilSimple } from '@phosphor-icons/react';
+import { ArrowLeft, ListBullets, ChartBar, Users, Check, X, PencilSimple, FlagCheckered, Warning } from '@phosphor-icons/react';
 
 const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
 const TYPE_LABELS = { americano: 'Americano', mexicano: 'Mexicano', winners_court: 'Winners Court' };
@@ -22,6 +22,8 @@ export default function TournamentDashboard() {
   const [modalScores, setModalScores] = useState({ t1: '', t2: '' });
   const [saving, setSaving] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [confirmComplete, setConfirmComplete] = useState(false);
+  const [completing, setCompleting] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -79,6 +81,21 @@ export default function TournamentDashboard() {
     const n = val === '' ? '' : Math.max(0, parseInt(val) || 0);
     const t1 = (pts && val !== '') ? Math.max(0, pts - n) : '';
     setModalScores({ t1: t1 === '' ? '' : String(t1), t2: val === '' ? '' : n });
+  }
+
+  async function completeTournament() {
+    setCompleting(true);
+    try {
+      await axios.patch(`${API}/api/tournaments/${id}/complete`, {}, { headers });
+      toast.success('Turnering afsluttet');
+      setConfirmComplete(false);
+      await fetchData();
+    } catch (err) {
+      const msg = err.response?.data?.detail || err.message || 'Ukendt fejl';
+      toast.error(`Kunne ikke afslutte: ${msg}`);
+    } finally {
+      setCompleting(false);
+    }
   }
 
   async function submitScore() {
@@ -141,10 +158,24 @@ export default function TournamentDashboard() {
             {TYPE_LABELS[tournament.tournament_type]} • {tournament.courts} {tournament.courts === 1 ? 'bane' : 'baner'}
           </div>
         </div>
-        {lastUpdated && (
-          <div className="text-xs text-gray-500 shrink-0">
-            Opdateret: {formatTime(lastUpdated)}
+        {tournament.status === 'completed' ? (
+          <span className="text-xs font-mono font-bold text-gray-500 bg-[#1A1A1A] px-2 py-1 shrink-0">AFSLUTTET</span>
+        ) : confirmComplete ? (
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-xs text-gray-400">Er du sikker?</span>
+            <button onClick={completeTournament} disabled={completing}
+              className="text-xs font-mono font-bold px-3 py-1.5 bg-[#D1F441] text-black hover:bg-[#c5e837] transition-colors disabled:opacity-50">
+              {completing ? 'AFSLUTTER...' : 'JA, AFSLUT'}
+            </button>
+            <button onClick={() => setConfirmComplete(false)} className="text-gray-600 hover:text-white transition-colors">
+              <X size={16} />
+            </button>
           </div>
+        ) : (
+          <button onClick={() => setConfirmComplete(true)}
+            className="flex items-center gap-1.5 text-xs font-mono text-gray-500 hover:text-[#D1F441] transition-colors shrink-0">
+            <FlagCheckered size={14} /> Afslut
+          </button>
         )}
       </header>
 
@@ -242,23 +273,26 @@ export default function TournamentDashboard() {
                         </div>
 
                         {/* Action */}
-                        <div className="px-4 py-3 border-t border-[#1A1A1A]">
-                          {m.completed ? (
-                            <button
-                              onClick={() => openModal(m, true)}
-                              className="w-full py-2.5 flex items-center justify-center gap-2 border border-[#1A1A1A] text-[11px] font-mono tracking-widest text-gray-600 hover:border-[#444] hover:text-gray-400 transition-colors"
-                            >
-                              <PencilSimple size={12} /> REDIGER RESULTAT
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => openModal(m)}
-                              className="w-full py-2.5 border border-[#2A2A2A] text-[11px] font-mono tracking-widest text-gray-400 hover:border-[#D1F441] hover:text-[#D1F441] transition-colors"
-                            >
-                              INDTAST RESULTAT
-                            </button>
-                          )}
-                        </div>
+                        {tournament.status !== 'completed' && (
+                          <div className="px-4 py-3 border-t border-[#1A1A1A]">
+                            {m.completed ? (
+                              <button
+                                onClick={() => openModal(m, true)}
+                                className="w-full py-2.5 flex items-center justify-center gap-2 border border-[#1A1A1A] text-[11px] font-mono tracking-widest text-gray-600 hover:border-[#444] hover:text-gray-400 transition-colors"
+                              >
+                                <PencilSimple size={12} /> REDIGER RESULTAT
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => openModal(m)}
+                                className="w-full py-2.5 border border-[#2A2A2A] text-[11px] font-mono tracking-widest text-gray-400 hover:border-[#D1F441] hover:text-[#D1F441] transition-colors"
+                              >
+                                INDTAST RESULTAT
+                              </button>
+                            )}
+                          </div>
+                        )}
+
                       </div>
                     ))}
                   </div>
