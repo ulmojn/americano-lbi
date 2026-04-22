@@ -4,7 +4,7 @@ import axios from 'axios';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Plus, X, Check, MagnifyingGlass } from '@phosphor-icons/react';
+import { ArrowLeft, Plus, X, MagnifyingGlass } from '@phosphor-icons/react';
 
 const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
 
@@ -24,58 +24,23 @@ export default function TournamentSetup() {
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [newPlayerInput, setNewPlayerInput] = useState('');
   const [newPlayers, setNewPlayers] = useState([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
+  const [inputFocused, setInputFocused] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const inputRef = useRef();
-  const inputWrapperRef = useRef();
-  const dropdownRef = useRef();
 
   useEffect(() => {
     axios.get(`${API}/api/participants`).then(r => setParticipants(r.data)).catch(() => {});
   }, []);
 
-  useEffect(() => {
-    function handleClickOutside(e) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target) &&
-          inputWrapperRef.current && !inputWrapperRef.current.contains(e.target)) {
-        setShowSuggestions(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  function updateDropdownPos() {
-    if (inputWrapperRef.current) {
-      const rect = inputWrapperRef.current.getBoundingClientRect();
-      setDropdownPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
-    }
-  }
-
-  useEffect(() => {
-    if (!showSuggestions) return;
-    updateDropdownPos();
-    window.addEventListener('scroll', updateDropdownPos, true);
-    window.addEventListener('resize', updateDropdownPos);
-    return () => {
-      window.removeEventListener('scroll', updateDropdownPos, true);
-      window.removeEventListener('resize', updateDropdownPos);
-    };
-  }, [showSuggestions]);
-
-  const suggestions = newPlayerInput.trim().length > 0
-    ? participants.filter(p =>
-        p.name.toLowerCase().includes(newPlayerInput.toLowerCase()) &&
-        !selectedIds.has(p.id)
-      )
-    : [];
+  const filteredParticipants = participants.filter(p =>
+    !selectedIds.has(p.id) &&
+    (newPlayerInput.trim() === '' || p.name.toLowerCase().includes(newPlayerInput.toLowerCase()))
+  );
 
   function selectParticipant(p) {
     setSelectedIds(prev => new Set([...prev, p.id]));
     setNewPlayerInput('');
-    setShowSuggestions(false);
     inputRef.current?.focus();
   }
 
@@ -102,11 +67,9 @@ export default function TournamentSetup() {
       setParticipants(prev => [...prev, data]);
       setSelectedIds(prev => new Set([...prev, data.id]));
       setNewPlayerInput('');
-      setShowSuggestions(false);
     } catch {
       setNewPlayers(prev => [...prev, playerName]);
       setNewPlayerInput('');
-      setShowSuggestions(false);
     }
   }
 
@@ -214,55 +177,47 @@ export default function TournamentSetup() {
             </span>
           </div>
 
-          {/* Autocomplete input */}
-          <div>
-            <div className="flex gap-2" ref={inputWrapperRef}>
-              <div className="relative flex-1">
-                <MagnifyingGlass size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
-                <Input
-                  ref={inputRef}
-                  value={newPlayerInput}
-                  onChange={e => { setNewPlayerInput(e.target.value); setShowSuggestions(true); }}
-                  onFocus={() => setShowSuggestions(true)}
-                  placeholder="Søg eller skriv nyt navn..."
-                  className="pl-8"
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') { e.preventDefault(); if (suggestions.length === 1) selectParticipant(suggestions[0]); else addNewPlayer(e); }
-                    if (e.key === 'Escape') setShowSuggestions(false);
-                  }}
-                />
-              </div>
-              <Button type="button" size="icon" className="shrink-0" onClick={addNewPlayer}>
-                <Plus size={16} />
-              </Button>
+          {/* Søgefelt */}
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <MagnifyingGlass size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+              <Input
+                ref={inputRef}
+                value={newPlayerInput}
+                onChange={e => setNewPlayerInput(e.target.value)}
+                onFocus={() => setInputFocused(true)}
+                onBlur={() => setTimeout(() => setInputFocused(false), 150)}
+                placeholder="Søg eller skriv nyt navn..."
+                className="pl-8"
+                onKeyDown={e => {
+                  if (e.key === 'Enter') { e.preventDefault(); if (filteredParticipants.length === 1) selectParticipant(filteredParticipants[0]); else addNewPlayer(e); }
+                }}
+              />
             </div>
-
+            <Button type="button" size="icon" className="shrink-0" onClick={addNewPlayer}>
+              <Plus size={16} />
+            </Button>
           </div>
 
-          {/* Suggestions — position:fixed så layout aldrig påvirkes */}
-          {showSuggestions && (
-            <div
-              ref={dropdownRef}
-              style={{ position: 'fixed', top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width, zIndex: 9999 }}
-              className="bg-[#111] border border-[#2A2A2A] shadow-xl overflow-y-auto max-h-44"
-            >
-              {suggestions.map(p => (
+          {/* Inline liste — fast højde, ingen positionsberegning */}
+          {inputFocused && participants.length > 0 && (
+            <div className="mt-1 border border-[#2A2A2A] bg-[#111] overflow-y-auto h-44">
+              {filteredParticipants.map(p => (
                 <button key={p.id} type="button"
                   onMouseDown={e => { e.preventDefault(); selectParticipant(p); }}
-                  className="w-full text-left px-4 py-3 text-sm text-gray-300 active:bg-[#1A1A1A] hover:bg-[#1A1A1A] hover:text-white transition-colors border-b border-[#1A1A1A] last:border-0">
+                  className="w-full text-left px-4 py-3 text-sm text-gray-300 hover:bg-[#1A1A1A] hover:text-white active:bg-[#1A1A1A] transition-colors border-b border-[#1A1A1A] last:border-0">
                   {p.name}
                 </button>
               ))}
               {newPlayerInput.trim() && !participants.some(p => p.name.toLowerCase() === newPlayerInput.trim().toLowerCase()) && (
                 <button type="button"
                   onMouseDown={e => { e.preventDefault(); addNewPlayer(); }}
-                  className="w-full text-left px-4 py-3 text-sm text-[#D1F441] active:bg-[#1A1A1A] hover:bg-[#1A1A1A] transition-colors flex items-center gap-2">
-                  <Plus size={12} />
-                  Opret "{newPlayerInput.trim()}"
+                  className="w-full text-left px-4 py-3 text-sm text-[#D1F441] hover:bg-[#1A1A1A] active:bg-[#1A1A1A] transition-colors flex items-center gap-2 border-b border-[#1A1A1A]">
+                  <Plus size={12} /> Opret "{newPlayerInput.trim()}"
                 </button>
               )}
-              {suggestions.length === 0 && !newPlayerInput.trim() && (
-                <p className="px-4 py-3 text-sm text-gray-600">Skriv et navn...</p>
+              {filteredParticipants.length === 0 && !newPlayerInput.trim() && (
+                <p className="px-4 py-3 text-sm text-gray-600">Alle spillere er valgt</p>
               )}
             </div>
           )}
