@@ -194,24 +194,6 @@ export default function TournamentSetup() {
             </span>
           </div>
 
-          {/* Valgte spillere som chips */}
-          {(selectedIds.size > 0 || newPlayers.length > 0) && (
-            <div className="flex flex-wrap gap-2 mb-3">
-              {participants.filter(p => selectedIds.has(p.id)).map(p => (
-                <span key={p.id} className="flex items-center gap-1 bg-[#D1F441]/10 border border-[#D1F441]/30 px-2 py-1 text-sm text-[#D1F441]">
-                  {p.name}
-                  <button type="button" onClick={() => deselectParticipant(p.id)} className="opacity-60 hover:opacity-100"><X size={12} /></button>
-                </span>
-              ))}
-              {newPlayers.map((n, i) => (
-                <span key={i} className="flex items-center gap-1 bg-[#D1F441]/10 border border-[#D1F441]/30 px-2 py-1 text-sm text-[#D1F441]">
-                  {n}
-                  <button type="button" onClick={() => removeNewPlayer(n)} className="opacity-60 hover:opacity-100"><X size={12} /></button>
-                </span>
-              ))}
-            </div>
-          )}
-
           {/* Autocomplete input */}
           <div className="relative">
             <div className="flex gap-2">
@@ -257,6 +239,24 @@ export default function TournamentSetup() {
               </div>
             )}
           </div>
+
+          {/* Valgte spillere som chips — under inputtet så siden ikke hopper */}
+          {(selectedIds.size > 0 || newPlayers.length > 0) && (
+            <div className="flex flex-wrap gap-2 mt-3">
+              {participants.filter(p => selectedIds.has(p.id)).map(p => (
+                <span key={p.id} className="flex items-center gap-1 bg-[#D1F441]/10 border border-[#D1F441]/30 px-2 py-1 text-sm text-[#D1F441]">
+                  {p.name}
+                  <button type="button" onClick={() => deselectParticipant(p.id)} className="opacity-60 hover:opacity-100"><X size={12} /></button>
+                </span>
+              ))}
+              {newPlayers.map((n, i) => (
+                <span key={i} className="flex items-center gap-1 bg-[#D1F441]/10 border border-[#D1F441]/30 px-2 py-1 text-sm text-[#D1F441]">
+                  {n}
+                  <button type="button" onClick={() => removeNewPlayer(n)} className="opacity-60 hover:opacity-100"><X size={12} /></button>
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         <Button type="submit" className="w-full" disabled={loading || totalPlayers < 4}>
