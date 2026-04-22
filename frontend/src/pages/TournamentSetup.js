@@ -217,24 +217,29 @@ export default function TournamentSetup() {
               </Button>
             </div>
 
-            {/* Dropdown */}
-            {showSuggestions && suggestions.length > 0 && (
-              <div ref={dropdownRef} className="absolute z-10 left-0 right-10 mt-1 bg-[#111] border border-[#2A2A2A] shadow-xl">
+            {/* Suggestions — fast højde så siden ikke hopper */}
+            {showSuggestions && (
+              <div ref={dropdownRef} className="mt-1 bg-[#111] border border-[#2A2A2A] overflow-y-auto max-h-44">
                 {suggestions.map(p => (
                   <button key={p.id} type="button"
                     onMouseDown={e => { e.preventDefault(); selectParticipant(p); }}
-                    className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-[#1A1A1A] hover:text-white transition-colors flex items-center gap-2">
-                    <Check size={12} className="text-[#D1F441] opacity-0" />
+                    className="w-full text-left px-4 py-3 text-sm text-gray-300 hover:bg-[#1A1A1A] hover:text-white transition-colors flex items-center gap-2 border-b border-[#1A1A1A] last:border-0">
                     {p.name}
                   </button>
                 ))}
                 {newPlayerInput.trim() && !participants.some(p => p.name.toLowerCase() === newPlayerInput.trim().toLowerCase()) && (
                   <button type="button"
                     onMouseDown={e => { e.preventDefault(); addNewPlayer(); }}
-                    className="w-full text-left px-4 py-2.5 text-sm text-gray-500 hover:bg-[#1A1A1A] transition-colors border-t border-[#1A1A1A] flex items-center gap-2">
-                    <Plus size={12} className="text-[#D1F441]" />
+                    className="w-full text-left px-4 py-3 text-sm text-[#D1F441] hover:bg-[#1A1A1A] transition-colors flex items-center gap-2">
+                    <Plus size={12} />
                     Opret "{newPlayerInput.trim()}"
                   </button>
+                )}
+                {suggestions.length === 0 && !newPlayerInput.trim() && (
+                  <p className="px-4 py-3 text-sm text-gray-600">Skriv et navn...</p>
+                )}
+                {suggestions.length === 0 && newPlayerInput.trim() && participants.some(p => p.name.toLowerCase() === newPlayerInput.trim().toLowerCase()) && (
+                  <p className="px-4 py-3 text-sm text-gray-600">Spiller allerede tilføjet</p>
                 )}
               </div>
             )}
