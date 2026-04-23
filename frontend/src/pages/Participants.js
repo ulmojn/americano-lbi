@@ -14,6 +14,7 @@ export default function Participants() {
   const [newName, setNewName] = useState('');
   const [editing, setEditing] = useState(null);
   const [editName, setEditName] = useState('');
+  const [editRating, setEditRating] = useState('');
   const [confirmDeleteAll, setConfirmDeleteAll] = useState(false);
   const { token } = useAuth();
   const headers = { Authorization: `Bearer ${token}` };
@@ -37,8 +38,12 @@ export default function Participants() {
 
   async function saveEdit(id) {
     if (!editName.trim()) return;
+    const rating = parseInt(editRating);
     try {
-      const { data } = await axios.put(`${API}/api/participants/${id}`, { name: editName.trim() }, { headers });
+      const { data } = await axios.put(`${API}/api/participants/${id}`, {
+        name: editName.trim(),
+        ...(editRating !== '' && !isNaN(rating) ? { rating } : {}),
+      }, { headers });
       setParticipants(prev => prev.map(p => p.id === id ? data : p));
       setEditing(null);
     } catch {
@@ -142,6 +147,14 @@ export default function Participants() {
                     autoFocus
                     onKeyDown={e => { if (e.key === 'Enter') saveEdit(p.id); if (e.key === 'Escape') setEditing(null); }}
                   />
+                  <Input
+                    type="number"
+                    value={editRating}
+                    onChange={e => setEditRating(e.target.value)}
+                    className="h-7 text-sm w-20 font-mono text-center"
+                    placeholder="Rating"
+                    onKeyDown={e => { if (e.key === 'Enter') saveEdit(p.id); if (e.key === 'Escape') setEditing(null); }}
+                  />
                   <button onClick={() => saveEdit(p.id)} className="text-[#D1F441] hover:opacity-70"><Check size={14} /></button>
                   <button onClick={() => setEditing(null)} className="text-gray-500 hover:text-white"><X size={14} /></button>
                 </>
@@ -150,7 +163,7 @@ export default function Participants() {
                   <span className="flex-1 text-sm">{p.name}</span>
                   {p.note && <span className="text-xs text-gray-500">{p.note}</span>}
                   <span className="text-xs font-mono text-gray-500">{p.rating ?? 1000}</span>
-                  <button onClick={() => { setEditing(p.id); setEditName(p.name); }} className="text-gray-600 hover:text-white transition-colors">
+                  <button onClick={() => { setEditing(p.id); setEditName(p.name); setEditRating(String(p.rating ?? 1000)); }} className="text-gray-600 hover:text-white transition-colors">
                     <PencilSimple size={13} />
                   </button>
                   <button onClick={() => deleteParticipant(p.id)} className="text-gray-600 hover:text-red-400 transition-colors">

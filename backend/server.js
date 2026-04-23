@@ -97,13 +97,14 @@ app.post('/api/participants', async (req, res) => {
 
 app.put('/api/participants/:id', requireAdmin, async (req, res) => {
   const { id } = req.params;
-  const { name, points, note } = req.body;
+  const { name, points, note, rating } = req.body;
   try {
     const updates = [];
     const values = [];
     if (name !== undefined) { updates.push('name = ?'); values.push(name); }
     if (points !== undefined) { updates.push('points = ?'); values.push(points); }
     if (note !== undefined) { updates.push('note = ?'); values.push(note); }
+    if (rating !== undefined) { updates.push('rating = ?'); values.push(rating); }
 
     if (updates.length === 0) {
       return res.status(400).json({ detail: 'Ingen data at opdatere' });
