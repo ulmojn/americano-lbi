@@ -16,6 +16,7 @@ export default function Participants() {
   const [editName, setEditName] = useState('');
   const [editRating, setEditRating] = useState('');
   const [confirmDeleteAll, setConfirmDeleteAll] = useState(false);
+  const [confirmResetRatings, setConfirmResetRatings] = useState(false);
   const { token } = useAuth();
   const headers = { Authorization: `Bearer ${token}` };
   const fileRef = useRef();
@@ -57,6 +58,17 @@ export default function Participants() {
       setParticipants(prev => prev.filter(p => p.id !== id));
     } catch {
       toast.error('Kunne ikke slette');
+    }
+  }
+
+  async function resetRatings() {
+    try {
+      await axios.post(`${API}/api/participants/reset-ratings`, {}, { headers });
+      setParticipants(prev => prev.map(p => ({ ...p, rating: 1000 })));
+      setConfirmResetRatings(false);
+      toast.success('Alle ratings nulstillet til 1000');
+    } catch {
+      toast.error('Kunne ikke nulstille ratings');
     }
   }
 
@@ -108,13 +120,33 @@ export default function Participants() {
               <UploadSimple size={13} /> Import CSV
             </Button>
             {participants.length > 0 && (
-              <Button variant="outline" size="sm" onClick={() => setConfirmDeleteAll(true)}
-                className="border-red-900 text-red-400 hover:bg-red-900/20 hover:text-red-300">
-                <Trash size={13} /> Slet alle
-              </Button>
+              <>
+                <Button variant="outline" size="sm" onClick={() => setConfirmResetRatings(true)}
+                  className="border-yellow-900 text-yellow-500 hover:bg-yellow-900/20 hover:text-yellow-400">
+                  Nulstil rating
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setConfirmDeleteAll(true)}
+                  className="border-red-900 text-red-400 hover:bg-red-900/20 hover:text-red-300">
+                  <Trash size={13} /> Slet alle
+                </Button>
+              </>
             )}
           </div>
         </div>
+
+        {confirmResetRatings && (
+          <div className="mb-6 p-4 border border-yellow-900 bg-yellow-950/20 flex items-start gap-3">
+            <Warning size={18} className="text-yellow-500 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm text-yellow-400 font-medium mb-1">Nulstil alle ratings til 1000?</p>
+              <p className="text-xs text-gray-500 mb-3">Dette kan ikke fortrydes.</p>
+              <div className="flex gap-2">
+                <Button size="sm" onClick={resetRatings} className="bg-yellow-600 hover:bg-yellow-700 text-white">Ja, nulstil</Button>
+                <Button size="sm" variant="outline" onClick={() => setConfirmResetRatings(false)}>Annuller</Button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {confirmDeleteAll && (
           <div className="mb-6 p-4 border border-red-900 bg-red-950/30 flex items-start gap-3">

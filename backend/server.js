@@ -132,6 +132,15 @@ app.delete('/api/participants', requireAdmin, async (req, res) => {
   }
 });
 
+app.post('/api/participants/reset-ratings', requireAdmin, async (req, res) => {
+  try {
+    await pool.execute('UPDATE participants SET rating = 1000');
+    res.json({ message: 'Alle ratings nulstillet' });
+  } catch (err) {
+    res.status(500).json({ detail: 'Kunne ikke nulstille ratings' });
+  }
+});
+
 app.delete('/api/participants/:id', requireAdmin, async (req, res) => {
   const { id } = req.params;
   try {
