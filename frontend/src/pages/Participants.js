@@ -149,6 +149,7 @@ export default function Participants() {
                 <>
                   <span className="flex-1 text-sm">{p.name}</span>
                   {p.note && <span className="text-xs text-gray-500">{p.note}</span>}
+                  <span className="text-xs font-mono text-gray-500">{p.rating ?? 1000}</span>
                   <button onClick={() => { setEditing(p.id); setEditName(p.name); }} className="text-gray-600 hover:text-white transition-colors">
                     <PencilSimple size={13} />
                   </button>

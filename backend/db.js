@@ -23,10 +23,18 @@ async function initDatabase() {
         id VARCHAR(36) PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         points INT DEFAULT 0,
+        rating INT DEFAULT 1000,
         note TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    // Migration: tilføj rating hvis den mangler
+    try {
+      await connection.execute(`ALTER TABLE participants ADD COLUMN rating INT DEFAULT 1000`);
+      console.log('✓ Migreret: rating kolonne tilføjet');
+    } catch (e) {
+      if (e.code !== 'ER_DUP_FIELDNAME') throw e;
+    }
     console.log('✓ Participants table ready');
 
     // Tournaments table

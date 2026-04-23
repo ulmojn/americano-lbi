@@ -249,27 +249,34 @@ export default function TournamentDashboard() {
                         {/* Teams */}
                         <div className="divide-y divide-[#1A1A1A]">
                           <div className="flex items-center justify-between px-4 py-3">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <Users size={13} className="text-gray-600 shrink-0" />
-                              <span className="text-sm truncate">
-                                {m.team1.map(p => p.name).join(' & ')}
+                            <div className="flex items-center justify-between px-4 py-3">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <Users size={13} className="text-gray-600 shrink-0" />
+                                <span className="text-sm truncate">
+                                  {m.team1.map(p => p.name).join(' & ')}
+                                </span>
+                                <span className="text-[10px] font-mono text-gray-600 shrink-0">
+                                  {Math.round(m.team1.reduce((s, p) => s + (p.rating ?? 1000), 0) / m.team1.length)}
+                                </span>
+                              </div>
+                              <span className={`text-sm font-mono ml-2 shrink-0 ${m.completed ? 'text-white font-bold' : 'text-gray-600'}`}>
+                                {m.completed ? m.team1_score : '–'}
                               </span>
                             </div>
-                            <span className={`text-sm font-mono ml-4 shrink-0 ${m.completed ? 'text-white font-bold' : 'text-gray-600'}`}>
-                              {m.completed ? m.team1_score : '–'}
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between px-4 py-3">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <Users size={13} className="text-gray-600 shrink-0" />
-                              <span className="text-sm truncate">
-                                {m.team2.map(p => p.name).join(' & ')}
+                            <div className="flex items-center justify-between px-4 py-3">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <Users size={13} className="text-gray-600 shrink-0" />
+                                <span className="text-sm truncate">
+                                  {m.team2.map(p => p.name).join(' & ')}
+                                </span>
+                                <span className="text-[10px] font-mono text-gray-600 shrink-0">
+                                  {Math.round(m.team2.reduce((s, p) => s + (p.rating ?? 1000), 0) / m.team2.length)}
+                                </span>
+                              </div>
+                              <span className={`text-sm font-mono ml-2 shrink-0 ${m.completed ? 'text-white font-bold' : 'text-gray-600'}`}>
+                                {m.completed ? m.team2_score : '–'}
                               </span>
                             </div>
-                            <span className={`text-sm font-mono ml-4 shrink-0 ${m.completed ? 'text-white font-bold' : 'text-gray-600'}`}>
-                              {m.completed ? m.team2_score : '–'}
-                            </span>
-                          </div>
                         </div>
 
                         {/* Action */}
