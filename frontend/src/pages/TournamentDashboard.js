@@ -72,15 +72,17 @@ export default function TournamentDashboard() {
   }
 
   function handleT1Change(val) {
-    const n = val === '' ? '' : Math.max(0, parseInt(val) || 0);
-    const t2 = (pts && val !== '') ? Math.max(0, pts - n) : '';
-    setModalScores({ t1: val === '' ? '' : n, t2: t2 === '' ? '' : String(t2) });
+    let n = val === '' ? '' : Math.max(0, parseInt(val) || 0);
+    if (pts && n !== '' && n > pts) n = pts;
+    const t2 = (pts && n !== '') ? Math.max(0, pts - n) : '';
+    setModalScores({ t1: n === '' ? '' : n, t2: t2 === '' ? '' : String(t2) });
   }
 
   function handleT2Change(val) {
-    const n = val === '' ? '' : Math.max(0, parseInt(val) || 0);
-    const t1 = (pts && val !== '') ? Math.max(0, pts - n) : '';
-    setModalScores({ t1: t1 === '' ? '' : String(t1), t2: val === '' ? '' : n });
+    let n = val === '' ? '' : Math.max(0, parseInt(val) || 0);
+    if (pts && n !== '' && n > pts) n = pts;
+    const t1 = (pts && n !== '') ? Math.max(0, pts - n) : '';
+    setModalScores({ t1: t1 === '' ? '' : String(t1), t2: n === '' ? '' : n });
   }
 
   async function completeTournament() {
