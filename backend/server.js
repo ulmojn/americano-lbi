@@ -446,8 +446,49 @@ app.patch('/api/tournaments/:id/complete', requireAdmin, async (req, res) => {
       [id]
     );
     if (result.affectedRows === 0) return res.status(404).json({ detail: 'Turnering ikke fundet eller allerede afsluttet' });
+
+    // Beregn ELO for alle afsluttede kampe i turneringen
+    const [matches] = await pool.execute(
+      'SELECT * FROM matches WHERE tournament_id = ? AND completed = TRUE', [id]
+    );
+    if (matches.length > 0) {
+      const allPlayerIds = [...new Set(matches.flatMap(m => {
+        const t1 = parseJSON(m.team1), t2 = parseJSON(m.team2);
+        return [...t1, ...t2].map(p => p.id);
+      }))];
+      const placeholders = allPlayerIds.map(() => '?').join(',');
+      const [ratingRows] = await pool.execute(
+        `SELECT id, rating FROM participants WHERE id IN (${placeholders})`, allPlayerIds
+      );
+      const ratingMap = {};
+      ratingRows.forEach(r => { ratingMap[r.id] = r.rating ?? 1000; });
+
+      // Akkumuler deltas for alle kampe baseret på ratings ved turneringsstart
+      const deltas = {};
+      allPlayerIds.forEach(id => { deltas[id] = 0; });
+
+      for (const m of matches) {
+        const team1 = parseJSON(m.team1), team2 = parseJSON(m.team2);
+        const avg1 = team1.reduce((s, p) => s + (ratingMap[p.id] ?? 1000), 0) / team1.length;
+        const avg2 = team2.reduce((s, p) => s + (ratingMap[p.id] ?? 1000), 0) / team2.length;
+        const expected1 = 1 / (1 + Math.pow(10, (avg2 - avg1) / 400));
+        const total = (m.team1_score || 0) + (m.team2_score || 0);
+        const actual1 = total > 0 ? m.team1_score / total : 0.5;
+        const delta1 = Math.round(32 * (actual1 - expected1));
+        team1.forEach(p => { if (deltas[p.id] !== undefined) deltas[p.id] += delta1; });
+        team2.forEach(p => { if (deltas[p.id] !== undefined) deltas[p.id] -= delta1; });
+      }
+
+      for (const [playerId, delta] of Object.entries(deltas)) {
+        if (delta !== 0) {
+          await pool.execute('UPDATE participants SET rating = rating + ? WHERE id = ?', [delta, playerId]);
+        }
+      }
+    }
+
     res.json({ message: 'Turnering afsluttet' });
   } catch (err) {
+    console.error('Error completing tournament:', err);
     res.status(500).json({ detail: 'Database fejl' });
   }
 });
@@ -508,21 +549,10 @@ app.put('/api/tournaments/:tournamentId/matches/:matchId/result', async (req, re
   const { tournamentId, matchId } = req.params;
   const { team1_score, team2_score } = req.body;
   try {
-    // Check if match was already completed before updating
-    const [existing] = await pool.execute('SELECT completed, team1, team2 FROM matches WHERE id = ?', [matchId]);
-    const wasCompleted = existing[0] ? Boolean(existing[0].completed) : false;
-
     await pool.execute(
       'UPDATE matches SET team1_score = ?, team2_score = ?, completed = TRUE WHERE id = ? AND tournament_id = ?',
       [team1_score, team2_score, matchId, tournamentId]
     );
-
-    // Only update ELO on first completion, not on edits
-    if (!wasCompleted && existing[0]) {
-      const team1 = parseJSON(existing[0].team1);
-      const team2 = parseJSON(existing[0].team2);
-      await applyEloUpdate(team1, team2, team1_score, team2_score);
-    }
 
     const [tournaments] = await pool.execute('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
     if (tournaments.length === 0) return res.status(404).json({ detail: 'Turnering ikke fundet' });
