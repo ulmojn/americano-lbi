@@ -331,6 +331,7 @@ export default function TournamentDashboard() {
                   {p.rank}
                 </span>
                 <span className="flex-1 text-sm">{p.name}</span>
+                <span className="text-xs font-mono text-gray-600">{p.rating ?? 1000}</span>
                 <span className="text-xs text-gray-500 font-mono">{p.played}K&nbsp;{p.won}V</span>
                 <span className={`font-display text-xl font-bold w-10 text-right ${i === 0 ? 'text-[#D1F441]' : 'text-white'}`}>
                   {p.points}

@@ -71,10 +71,17 @@ async function initDatabase() {
         team1_score INT DEFAULT NULL,
         team2_score INT DEFAULT NULL,
         completed BOOLEAN DEFAULT FALSE,
+        elo_delta INT DEFAULT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (tournament_id) REFERENCES tournaments(id) ON DELETE CASCADE
       )
     `);
+    try {
+      await connection.execute(`ALTER TABLE matches ADD COLUMN elo_delta INT DEFAULT NULL`);
+      console.log('✓ Migreret: elo_delta kolonne tilføjet');
+    } catch (e) {
+      if (e.code !== 'ER_DUP_FIELDNAME') throw e;
+    }
     console.log('✓ Matches table ready');
 
     console.log('Database initialized successfully!');
