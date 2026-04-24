@@ -597,6 +597,24 @@ app.get('/api/tournaments/:id/scoreboard', async (req, res) => {
     let standings;
     if (tournament.tournament_type === 'team_americano' && teams) {
       standings = calculateTeamScoreboard(teams, parsedMatches);
+      // Berig med gennemsnits-ELO for hvert hold
+      const teamPlayerIds = teams.flatMap(t => [t.player1?.id, t.player2?.id]).filter(Boolean);
+      if (teamPlayerIds.length > 0) {
+        const placeholders = teamPlayerIds.map(() => '?').join(',');
+        const [ratingRows] = await pool.execute(
+          `SELECT id, rating FROM participants WHERE id IN (${placeholders})`, teamPlayerIds
+        );
+        const ratingMap = {};
+        ratingRows.forEach(r => { ratingMap[r.id] = r.rating ?? 1000; });
+        standings.forEach(s => {
+          const team = teams.find(t => t.id === s.id);
+          if (team) {
+            const r1 = ratingMap[team.player1?.id] ?? 1000;
+            const r2 = ratingMap[team.player2?.id] ?? 1000;
+            s.rating = Math.round((r1 + r2) / 2);
+          }
+        });
+      }
     } else {
       standings = calculateScoreboard(players, parsedMatches);
       // Berig standings med aktuel rating
