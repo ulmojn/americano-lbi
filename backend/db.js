@@ -42,10 +42,11 @@ async function initDatabase() {
       CREATE TABLE IF NOT EXISTS tournaments (
         id VARCHAR(36) PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
-        tournament_type ENUM('americano', 'mexicano', 'winners_court') NOT NULL,
+        tournament_type ENUM('americano', 'mexicano', 'winners_court', 'team_americano') NOT NULL,
         courts INT NOT NULL,
         players JSON NOT NULL,
         points_per_game INT DEFAULT 16,
+        teams JSON DEFAULT NULL,
         status ENUM('active', 'completed') DEFAULT 'active',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
@@ -56,6 +57,20 @@ async function initDatabase() {
       console.log('✓ Migreret: points_per_game kolonne tilføjet');
     } catch (e) {
       if (e.code !== 'ER_DUP_FIELDNAME') throw e;
+    }
+    // Migration: tilføj teams kolonne
+    try {
+      await connection.execute(`ALTER TABLE tournaments ADD COLUMN teams JSON DEFAULT NULL`);
+      console.log('✓ Migreret: teams kolonne tilføjet');
+    } catch (e) {
+      if (e.code !== 'ER_DUP_FIELDNAME') throw e;
+    }
+    // Migration: udvid tournament_type ENUM med team_americano
+    try {
+      await connection.execute(`ALTER TABLE tournaments MODIFY COLUMN tournament_type ENUM('americano', 'mexicano', 'winners_court', 'team_americano') NOT NULL`);
+      console.log('✓ Migreret: team_americano tilføjet til ENUM');
+    } catch (e) {
+      // Ignorér hvis allerede migreret
     }
     console.log('✓ Tournaments table ready');
 

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 
 const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
 
-const TYPE_LABELS = { americano: 'Americano', mexicano: 'Mexicano', winners_court: 'Winners Court' };
+const TYPE_LABELS = { americano: 'Americano', mexicano: 'Mexicano', winners_court: 'Winners Court', team_americano: 'Team Americano' };
 const STATUS_LABELS = { setup: 'Opsætning', active: 'Aktiv', completed: 'Afsluttet' };
 
 export default function Home() {

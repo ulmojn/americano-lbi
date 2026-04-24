@@ -191,9 +191,12 @@ app.post('/api/participants/upload-csv', requireAdmin, upload.single('file'), as
 
 // ==================== TOURNAMENT LOGIC ====================
 
-function generateMatches(players, courts, tournamentType) {
+function generateMatches(players, courts, tournamentType, teams) {
   if (tournamentType === 'americano') {
     return generateAmericanoMatches(players, courts);
+  }
+  if (tournamentType === 'team_americano') {
+    return generateTeamAmericanoMatches(teams, courts);
   }
 
   // Mexicano / Winners Court: generer kun første runde tilfældigt
@@ -220,6 +223,43 @@ function generateMatches(players, courts, tournamentType) {
       completed: false
     });
   }
+  return matches;
+}
+
+// Team Americano: round-robin mellem faste hold via circle method
+function generateTeamAmericanoMatches(teams, courts) {
+  const n = teams.length;
+  if (n < 2) return [];
+  const effectiveCourts = Math.min(courts, Math.floor(n / 2));
+  const totalRounds = n % 2 === 0 ? n - 1 : n;
+  const matches = [];
+
+  const shuffled = [...teams].sort(() => Math.random() - 0.5);
+  const rest = shuffled.slice(1);
+
+  for (let round = 1; round <= totalRounds; round++) {
+    const circle = [shuffled[0], ...rest];
+
+    for (let c = 0; c < effectiveCourts; c++) {
+      const t1Team = circle[c];
+      const t2Team = circle[n - 1 - c];
+      if (t1Team && t2Team && t1Team.id !== t2Team.id) {
+        matches.push({
+          id: uuidv4(),
+          round,
+          court: c + 1,
+          team1: [t1Team.player1, t1Team.player2],
+          team2: [t2Team.player1, t2Team.player2],
+          team1_score: null,
+          team2_score: null,
+          completed: false
+        });
+      }
+    }
+
+    rest.unshift(rest.pop());
+  }
+
   return matches;
 }
 
@@ -270,6 +310,44 @@ function generateAmericanoMatches(players, courts) {
   }
 
   return matches;
+}
+
+function calculateTeamScoreboard(teams, matches) {
+  const standings = {};
+  const playerToTeam = {};
+
+  teams.forEach(t => {
+    standings[t.id] = { id: t.id, name: t.name, points: 0, played: 0, won: 0, diff: 0 };
+    if (t.player1) playerToTeam[t.player1.id] = t.id;
+    if (t.player2) playerToTeam[t.player2.id] = t.id;
+  });
+
+  matches.filter(m => m.completed).forEach(match => {
+    const t1Score = match.team1_score || 0;
+    const t2Score = match.team2_score || 0;
+    const team1Id = playerToTeam[match.team1[0]?.id];
+    const team2Id = playerToTeam[match.team2[0]?.id];
+
+    if (team1Id && standings[team1Id]) {
+      standings[team1Id].points += t1Score;
+      standings[team1Id].played += 1;
+      standings[team1Id].diff += (t1Score - t2Score);
+      if (t1Score > t2Score) standings[team1Id].won += 1;
+    }
+    if (team2Id && standings[team2Id]) {
+      standings[team2Id].points += t2Score;
+      standings[team2Id].played += 1;
+      standings[team2Id].diff += (t2Score - t1Score);
+      if (t2Score > t1Score) standings[team2Id].won += 1;
+    }
+  });
+
+  const sorted = Object.values(standings).sort((a, b) => {
+    if (b.points !== a.points) return b.points - a.points;
+    return b.diff - a.diff;
+  });
+  sorted.forEach((team, i) => { team.rank = i + 1; });
+  return sorted;
 }
 
 function calculateScoreboard(players, matches) {
@@ -357,8 +435,44 @@ function generateNextRound(players, matches, courts, tournamentType) {
 // ==================== TOURNAMENT ENDPOINTS ====================
 
 app.post('/api/tournaments', async (req, res) => {
-  const { name, tournament_type, courts, player_ids = [], manual_players = [], points_per_game = 16 } = req.body;
+  const { name, tournament_type, courts, player_ids = [], manual_players = [], points_per_game = 16, teams: teamsInput = [] } = req.body;
   try {
+    if (tournament_type === 'team_americano') {
+      if (teamsInput.length < 2) return res.status(400).json({ detail: 'Mindst 2 hold kræves' });
+
+      const allPlayerIds = teamsInput.flatMap(t => [t.player1_id, t.player2_id]).filter(Boolean);
+      const uniqueIds = [...new Set(allPlayerIds)];
+      const placeholders = uniqueIds.map(() => '?').join(',');
+      const [rows] = await pool.execute(`SELECT id, name FROM participants WHERE id IN (${placeholders})`, uniqueIds);
+      const playerMap = {};
+      rows.forEach(p => { playerMap[p.id] = p; });
+
+      const teams = teamsInput.map(t => ({
+        id: uuidv4(),
+        name: `${playerMap[t.player1_id]?.name || '?'} & ${playerMap[t.player2_id]?.name || '?'}`,
+        player1: playerMap[t.player1_id] || { id: t.player1_id, name: '?' },
+        player2: playerMap[t.player2_id] || { id: t.player2_id, name: '?' },
+      }));
+
+      const players = uniqueIds.map(id => playerMap[id]).filter(Boolean);
+      const matches = generateTeamAmericanoMatches(teams, courts);
+      const tournamentId = uuidv4();
+
+      await pool.execute(
+        'INSERT INTO tournaments (id, name, tournament_type, courts, players, points_per_game, teams) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [tournamentId, name, tournament_type, courts, JSON.stringify(players), points_per_game, JSON.stringify(teams)]
+      );
+
+      for (const match of matches) {
+        await pool.execute(
+          'INSERT INTO matches (id, tournament_id, round, court, team1, team2, team1_score, team2_score, completed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [match.id, tournamentId, match.round, match.court, JSON.stringify(match.team1), JSON.stringify(match.team2), null, null, false]
+        );
+      }
+
+      return res.json({ id: tournamentId, message: 'Turnering oprettet' });
+    }
+
     const players = [];
     if (player_ids.length > 0) {
       const placeholders = player_ids.map(() => '?').join(',');
@@ -479,18 +593,23 @@ app.get('/api/tournaments/:id/scoreboard', async (req, res) => {
       completed: Boolean(m.completed)
     }));
 
-    const standings = calculateScoreboard(players, parsedMatches);
-
-    // Berig standings med aktuel rating
-    const playerIds = standings.map(s => s.id).filter(Boolean);
-    if (playerIds.length > 0) {
-      const placeholders = playerIds.map(() => '?').join(',');
-      const [ratingRows] = await pool.execute(
-        `SELECT id, rating FROM participants WHERE id IN (${placeholders})`, playerIds
-      );
-      const ratingMap = {};
-      ratingRows.forEach(r => { ratingMap[r.id] = r.rating ?? 1000; });
-      standings.forEach(s => { s.rating = ratingMap[s.id] ?? 1000; });
+    const teams = tournament.teams ? parseJSON(tournament.teams) : null;
+    let standings;
+    if (tournament.tournament_type === 'team_americano' && teams) {
+      standings = calculateTeamScoreboard(teams, parsedMatches);
+    } else {
+      standings = calculateScoreboard(players, parsedMatches);
+      // Berig standings med aktuel rating
+      const playerIds = standings.map(s => s.id).filter(Boolean);
+      if (playerIds.length > 0) {
+        const placeholders = playerIds.map(() => '?').join(',');
+        const [ratingRows] = await pool.execute(
+          `SELECT id, rating FROM participants WHERE id IN (${placeholders})`, playerIds
+        );
+        const ratingMap = {};
+        ratingRows.forEach(r => { ratingMap[r.id] = r.rating ?? 1000; });
+        standings.forEach(s => { s.rating = ratingMap[s.id] ?? 1000; });
+      }
     }
 
     res.json({ tournament_name: tournament.name, tournament_type: tournament.tournament_type, standings });

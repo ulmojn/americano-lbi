@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Trophy, Plus, ArrowRight, Trash, SignOut, Users } from '@phosphor-icons/react';
 
 const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
-const TYPE_LABELS = { americano: 'Americano', mexicano: 'Mexicano', winners_court: 'Winners Court' };
+const TYPE_LABELS = { americano: 'Americano', mexicano: 'Mexicano', winners_court: 'Winners Court', team_americano: 'Team Americano' };
 const STATUS_LABELS = { active: 'Aktiv', completed: 'Afsluttet' };
 
 export default function AdminPanel() {

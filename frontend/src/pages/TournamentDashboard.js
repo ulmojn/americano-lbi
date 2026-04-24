@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ArrowLeft, ListBullets, ChartBar, Users, Check, X, PencilSimple, FlagCheckered, Warning } from '@phosphor-icons/react';
 
 const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
-const TYPE_LABELS = { americano: 'Americano', mexicano: 'Mexicano', winners_court: 'Winners Court' };
+const TYPE_LABELS = { americano: 'Americano', mexicano: 'Mexicano', winners_court: 'Winners Court', team_americano: 'Team Americano' };
 
 export default function TournamentDashboard() {
   const { id } = useParams();
