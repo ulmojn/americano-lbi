@@ -65,7 +65,11 @@ export default function TournamentDashboard() {
     }
   }, [id]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    fetchData();
+    const interval = setInterval(fetchData, 10000);
+    return () => clearInterval(interval);
+  }, [fetchData]);
 
   function groupByRound(matches) {
     return matches.reduce((acc, m) => {
