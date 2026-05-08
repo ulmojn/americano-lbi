@@ -105,7 +105,7 @@ app.post('/api/tournaments/:id/pin-login', async (req, res) => {
     const token = jwt.sign(
       { role: 'tournament', tournamentId: req.params.id },
       JWT_SECRET,
-      { expiresIn: '30d' }
+      { expiresIn: '1d' }
     );
     res.json({ token });
   } catch (err) {
