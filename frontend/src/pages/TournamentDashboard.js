@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -21,6 +21,7 @@ export default function TournamentDashboard() {
   const [modalScores, setModalScores] = useState({ t1: '', t2: '' });
   const [saving, setSaving] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const fingerprintRef = useRef(null);
   const [confirmComplete, setConfirmComplete] = useState(false);
   const [completing, setCompleting] = useState(false);
   const [tournamentToken, setTournamentToken] = useState(() => localStorage.getItem(`t_pin_${id}`));
@@ -47,27 +48,35 @@ export default function TournamentDashboard() {
     }
   }
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setError(false);
+  const fetchData = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) { setLoading(true); setError(false); }
     try {
       const [tRes, sRes] = await Promise.all([
         axios.get(`${API}/api/tournaments/${id}`, { timeout: 8000 }),
         axios.get(`${API}/api/tournaments/${id}/scoreboard`, { timeout: 8000 }),
       ]);
+      const matches = tRes.data.matches || [];
+      const fingerprint = matches
+        .filter(m => m.completed)
+        .map(m => `${m.id}:${m.team1_score}-${m.team2_score}`)
+        .sort().join('|');
+
+      if (silent && fingerprint === fingerprintRef.current) return;
+
+      fingerprintRef.current = fingerprint;
       setTournament(tRes.data);
       setScoreboard(sRes.data.standings || []);
       setLastUpdated(new Date());
     } catch {
-      setError(true);
+      if (!silent) setError(true);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [id]);
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 10000);
+    const interval = setInterval(() => fetchData({ silent: true }), 10000);
     return () => clearInterval(interval);
   }, [fetchData]);
 
