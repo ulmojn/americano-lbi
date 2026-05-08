@@ -385,6 +385,32 @@ function calculateScoreboard(players, matches) {
   return sorted;
 }
 
+function werePartnersInRound(id1, id2, matches, round) {
+  return matches
+    .filter(m => m.round === round && m.completed)
+    .some(m => {
+      const t1 = m.team1.map(p => p.id);
+      const t2 = m.team2.map(p => p.id);
+      return (t1.includes(id1) && t1.includes(id2)) ||
+             (t2.includes(id1) && t2.includes(id2));
+    });
+}
+
+function pickMexicanoPairing(p, matches, currentRound) {
+  // 3 mulige parringer for 4 spillere — vælg den første uden makker-gentagelse
+  const options = [
+    { team1: [p[0], p[1]], team2: [p[2], p[3]] }, // naturlig rangorden
+    { team1: [p[0], p[2]], team2: [p[1], p[3]] },
+    { team1: [p[0], p[3]], team2: [p[1], p[2]] },
+  ];
+  for (const opt of options) {
+    const t1repeat = werePartnersInRound(opt.team1[0].id, opt.team1[1].id, matches, currentRound);
+    const t2repeat = werePartnersInRound(opt.team2[0].id, opt.team2[1].id, matches, currentRound);
+    if (!t1repeat && !t2repeat) return opt;
+  }
+  return options[0]; // fallback hvis alle er gentagelser
+}
+
 function generateNextRound(players, matches, courts, tournamentType) {
   const currentRound = Math.max(...matches.map(m => m.round), 0);
   const standings = calculateScoreboard(players, matches);
@@ -416,13 +442,18 @@ function generateNextRound(players, matches, courts, tournamentType) {
 
     if (selected.length === 4) {
       selected.forEach(s => used.add(s.id));
-      const playerObjs = selected.map(s => players.find(p => p.id === s.id) || s);
+      const p = selected.map(s => players.find(pl => pl.id === s.id) || s);
+
+      const { team1, team2 } = tournamentType === 'mexicano'
+        ? pickMexicanoPairing(p, matches, currentRound)
+        : { team1: [p[0], p[1]], team2: [p[2], p[3]] };
+
       newMatches.push({
         id: uuidv4(),
         round: currentRound + 1,
         court,
-        team1: [playerObjs[0], playerObjs[1]],
-        team2: [playerObjs[2], playerObjs[3]],
+        team1,
+        team2,
         team1_score: null,
         team2_score: null,
         completed: false
