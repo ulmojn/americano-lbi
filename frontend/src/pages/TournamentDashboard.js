@@ -10,8 +10,7 @@ const TYPE_LABELS = { americano: 'Americano', mexicano: 'Mexicano', winners_cour
 
 export default function TournamentDashboard() {
   const { id } = useParams();
-  const { token } = useAuth();
-  const headers = { Authorization: `Bearer ${token}` };
+  const { token: adminToken, isAdmin } = useAuth();
 
   const [tournament, setTournament] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -24,6 +23,29 @@ export default function TournamentDashboard() {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [confirmComplete, setConfirmComplete] = useState(false);
   const [completing, setCompleting] = useState(false);
+  const [tournamentToken, setTournamentToken] = useState(() => localStorage.getItem(`t_pin_${id}`));
+  const [pinInput, setPinInput] = useState('');
+  const [pinError, setPinError] = useState('');
+  const [pinLoading, setPinLoading] = useState(false);
+
+  const activeToken = adminToken || tournamentToken;
+  const headers = activeToken ? { Authorization: `Bearer ${activeToken}` } : {};
+
+  async function pinLogin(e) {
+    e.preventDefault();
+    if (pinInput.length !== 3) return setPinError('Indtast en 3-cifret PIN');
+    setPinLoading(true);
+    setPinError('');
+    try {
+      const { data } = await axios.post(`${API}/api/tournaments/${id}/pin-login`, { pin: pinInput });
+      localStorage.setItem(`t_pin_${id}`, data.token);
+      setTournamentToken(data.token);
+    } catch (err) {
+      setPinError(err.response?.data?.detail || 'Forkert PIN');
+    } finally {
+      setPinLoading(false);
+    }
+  }
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -121,7 +143,42 @@ export default function TournamentDashboard() {
     }
   }
 
-  // ── Loading / Error states ──────────────────────────────────────────
+  // ── Auth / Loading / Error states ──────────────────────────────────
+
+  if (!activeToken) return (
+    <div className="min-h-screen bg-[#0A0A0A] text-white flex items-center justify-center px-6">
+      <form onSubmit={pinLogin} className="max-w-xs w-full space-y-6 text-center">
+        <div>
+          <Link to={`/tournament/${id}`} className="text-xs text-gray-600 hover:text-gray-400 transition-colors">← Se stilling</Link>
+          <h1 className="font-display text-2xl font-bold uppercase tracking-wide mt-4">Administrer turnering</h1>
+          <p className="text-sm text-gray-500 mt-1">Indtast PIN-koden for at fortsætte</p>
+        </div>
+        <div>
+          <input
+            type="number"
+            inputMode="numeric"
+            maxLength={3}
+            value={pinInput}
+            onChange={e => { setPinInput(e.target.value.slice(0, 3)); setPinError(''); }}
+            placeholder="000"
+            autoFocus
+            className="w-full bg-[#111] border border-[#2A2A2A] text-white text-center text-4xl font-mono font-bold py-6 focus:border-[#D1F441] outline-none transition-colors tracking-[0.3em]"
+          />
+          {pinError && <p className="text-red-400 text-sm mt-2">{pinError}</p>}
+        </div>
+        <button
+          type="submit"
+          disabled={pinLoading || pinInput.length !== 3}
+          className="w-full py-3 bg-[#D1F441] text-black font-mono font-bold text-sm tracking-widest hover:bg-[#c5e837] transition-colors disabled:opacity-40"
+        >
+          {pinLoading ? 'TJEKKER...' : 'LOG IND'}
+        </button>
+        <Link to="/admin" className="block text-xs text-gray-600 hover:text-gray-400 transition-colors">
+          Admin-login →
+        </Link>
+      </form>
+    </div>
+  );
 
   if (loading) return (
     <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center text-gray-500">
@@ -149,7 +206,7 @@ export default function TournamentDashboard() {
 
       {/* Header */}
       <header className="border-b border-[#1A1A1A] px-6 py-4 flex items-center gap-4">
-        <Link to="/admin/panel" className="text-gray-500 hover:text-white transition-colors shrink-0">
+        <Link to={isAdmin ? '/admin/panel' : `/tournament/${id}`} className="text-gray-500 hover:text-white transition-colors shrink-0">
           <ArrowLeft size={18} />
         </Link>
         <div className="flex-1 min-w-0">

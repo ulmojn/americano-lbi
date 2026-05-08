@@ -65,6 +65,13 @@ async function initDatabase() {
     } catch (e) {
       if (e.code !== 'ER_DUP_FIELDNAME') throw e;
     }
+    // Migration: tilføj pin kolonne
+    try {
+      await connection.execute(`ALTER TABLE tournaments ADD COLUMN pin VARCHAR(3) DEFAULT NULL`);
+      console.log('✓ Migreret: pin kolonne tilføjet');
+    } catch (e) {
+      if (e.code !== 'ER_DUP_FIELDNAME') throw e;
+    }
     // Migration: udvid tournament_type ENUM med team_americano
     try {
       await connection.execute(`ALTER TABLE tournaments MODIFY COLUMN tournament_type ENUM('americano', 'mexicano', 'winners_court', 'team_americano') NOT NULL`);

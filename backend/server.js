@@ -52,6 +52,33 @@ async function requireAdmin(req, res, next) {
   }
 }
 
+// Accepterer admin-token ELLER turnerings-PIN-token
+async function requireTournamentAccess(req, res, next) {
+  const authHeader = req.headers.authorization || '';
+  if (!authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ detail: 'Ikke autoriseret' });
+  }
+  try {
+    const payload = verifyToken(authHeader.slice(7));
+    if (payload.role === 'admin') {
+      req.admin = payload;
+      return next();
+    }
+    const tournamentId = req.params.id || req.params.tournamentId;
+    if (payload.role === 'tournament' && payload.tournamentId === tournamentId) {
+      req.tournamentAccess = payload;
+      return next();
+    }
+    return res.status(403).json({ detail: 'Adgang nægtet' });
+  } catch (err) {
+    return res.status(401).json({ detail: 'Ugyldigt token' });
+  }
+}
+
+function generatePin() {
+  return String(Math.floor(100 + Math.random() * 900));
+}
+
 // ==================== AUTH ENDPOINTS ====================
 
 app.post('/api/admin/login', (req, res) => {
@@ -65,6 +92,25 @@ app.post('/api/admin/login', (req, res) => {
 
 app.get('/api/admin/verify', requireAdmin, (req, res) => {
   res.json({ valid: true });
+});
+
+app.post('/api/tournaments/:id/pin-login', async (req, res) => {
+  const { pin } = req.body;
+  try {
+    const [rows] = await pool.execute('SELECT pin FROM tournaments WHERE id = ?', [req.params.id]);
+    if (!rows.length) return res.status(404).json({ detail: 'Turnering ikke fundet' });
+    if (!rows[0].pin || rows[0].pin !== String(pin)) {
+      return res.status(401).json({ detail: 'Forkert PIN' });
+    }
+    const token = jwt.sign(
+      { role: 'tournament', tournamentId: req.params.id },
+      JWT_SECRET,
+      { expiresIn: '30d' }
+    );
+    res.json({ token });
+  } catch (err) {
+    res.status(500).json({ detail: 'Database fejl' });
+  }
 });
 
 // ==================== PARTICIPANTS ENDPOINTS ====================
@@ -513,10 +559,11 @@ app.post('/api/tournaments', async (req, res) => {
       const players = uniqueIds.map(id => playerMap[id]).filter(Boolean);
       const matches = generateTeamAmericanoMatches(teams, courts);
       const tournamentId = uuidv4();
+      const pin = generatePin();
 
       await pool.execute(
-        'INSERT INTO tournaments (id, name, tournament_type, courts, players, points_per_game, teams) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [tournamentId, name, tournament_type, courts, JSON.stringify(players), points_per_game, JSON.stringify(teams)]
+        'INSERT INTO tournaments (id, name, tournament_type, courts, players, points_per_game, teams, pin) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [tournamentId, name, tournament_type, courts, JSON.stringify(players), points_per_game, JSON.stringify(teams), pin]
       );
 
       for (const match of matches) {
@@ -526,7 +573,7 @@ app.post('/api/tournaments', async (req, res) => {
         );
       }
 
-      return res.json({ id: tournamentId, message: 'Turnering oprettet' });
+      return res.json({ id: tournamentId, pin, message: 'Turnering oprettet' });
     }
 
     const players = [];
@@ -546,10 +593,11 @@ app.post('/api/tournaments', async (req, res) => {
 
     const matches = generateMatches(players, courts, tournament_type);
     const tournamentId = uuidv4();
+    const pin = generatePin();
 
     await pool.execute(
-      'INSERT INTO tournaments (id, name, tournament_type, courts, players, points_per_game) VALUES (?, ?, ?, ?, ?, ?)',
-      [tournamentId, name, tournament_type, courts, JSON.stringify(players), points_per_game]
+      'INSERT INTO tournaments (id, name, tournament_type, courts, players, points_per_game, pin) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [tournamentId, name, tournament_type, courts, JSON.stringify(players), points_per_game, pin]
     );
 
     for (const match of matches) {
@@ -559,7 +607,7 @@ app.post('/api/tournaments', async (req, res) => {
       );
     }
 
-    res.json({ id: tournamentId, message: 'Turnering oprettet' });
+    res.json({ id: tournamentId, pin, message: 'Turnering oprettet' });
   } catch (err) {
     console.error('Error creating tournament:', err);
     res.status(500).json({ detail: 'Kunne ikke oprette turnering' });
@@ -618,7 +666,7 @@ app.get('/api/tournaments/:id', async (req, res) => {
   }
 });
 
-app.patch('/api/tournaments/:id/complete', requireAdmin, async (req, res) => {
+app.patch('/api/tournaments/:id/complete', requireTournamentAccess, async (req, res) => {
   const { id } = req.params;
   try {
     const [result] = await pool.execute(
@@ -709,7 +757,7 @@ async function calculateEloDelta(team1Players, team2Players, team1_score, team2_
   return Math.round(32 * (actual1 - expected1));
 }
 
-app.put('/api/tournaments/:tournamentId/matches/:matchId/result', async (req, res) => {
+app.put('/api/tournaments/:tournamentId/matches/:matchId/result', requireTournamentAccess, async (req, res) => {
   const { tournamentId, matchId } = req.params;
   const { team1_score, team2_score } = req.body;
   try {

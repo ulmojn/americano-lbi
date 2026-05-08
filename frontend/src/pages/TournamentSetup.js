@@ -29,6 +29,7 @@ export default function TournamentSetup() {
   const [loading, setLoading] = useState(false);
   const [teamOrder, setTeamOrder] = useState([]);
   const [swapSelect, setSwapSelect] = useState(null); // {orderIdx}
+  const [createdTournament, setCreatedTournament] = useState(null); // { id, pin }
   const navigate = useNavigate();
   const inputRef = useRef();
 
@@ -157,8 +158,7 @@ export default function TournamentSetup() {
           teams,
           points_per_game: resolvedPoints,
         });
-        toast.success('Turnering oprettet!');
-        navigate(`/tournament/${data.id}/manage`);
+        setCreatedTournament({ id: data.id, pin: data.pin });
       } else {
         const { data } = await axios.post(`${API}/api/tournaments`, {
           name: name.trim(),
@@ -168,14 +168,39 @@ export default function TournamentSetup() {
           manual_players: newPlayers,
           points_per_game: resolvedPoints,
         });
-        toast.success('Turnering oprettet!');
-        navigate(`/tournament/${data.id}/manage`);
+        setCreatedTournament({ id: data.id, pin: data.pin });
       }
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Kunne ikke oprette turnering');
     } finally {
       setLoading(false);
     }
+  }
+
+  if (createdTournament) {
+    return (
+      <div className="min-h-screen bg-[#0A0A0A] text-white flex items-center justify-center px-6">
+        <div className="max-w-sm w-full text-center space-y-8">
+          <div>
+            <div className="text-xs font-mono text-gray-500 uppercase tracking-widest mb-2">Turnering oprettet</div>
+            <h1 className="font-display text-3xl font-bold uppercase tracking-wide">Del PIN-koden</h1>
+          </div>
+          <div className="bg-[#111] border border-[#1A1A1A] py-10 px-8">
+            <div className="text-xs font-mono text-gray-500 uppercase tracking-widest mb-4">PIN til at administrere turneringen</div>
+            <div className="font-display text-7xl font-bold tracking-[0.3em] text-[#D1F441]">
+              {createdTournament.pin}
+            </div>
+            <div className="text-xs text-gray-600 mt-4">Del denne kode mundtligt med deltagerne</div>
+          </div>
+          <button
+            onClick={() => navigate(`/tournament/${createdTournament.id}/manage`)}
+            className="w-full py-4 bg-[#D1F441] text-black font-mono font-bold text-sm tracking-widest hover:bg-[#c5e837] transition-colors"
+          >
+            GÅ TIL TURNERING →
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
