@@ -26,7 +26,7 @@ export default function App() {
           <Route path="/admin/participants" element={<ProtectedRoute><Participants /></ProtectedRoute>} />
           <Route path="/tournament/new" element={<TournamentSetup />} />
           <Route path="/tournament/:id" element={<ScoreboardView />} />
-          <Route path="/tournament/:id/manage" element={<TournamentDashboard />} />
+          <Route path="/tournament/:id/manage" element={<ProtectedRoute><TournamentDashboard /></ProtectedRoute>} />
         </Routes>
         <Toaster />
       </BrowserRouter>
