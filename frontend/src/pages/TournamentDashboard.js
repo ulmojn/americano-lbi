@@ -140,7 +140,7 @@ export default function TournamentDashboard() {
   if (!tournament) return null;
 
   const rounds = groupByRound(tournament.matches || []);
-  const roundNumbers = Object.keys(rounds).map(Number).sort((a, b) => a - b);
+  const roundNumbers = Object.keys(rounds).map(Number).sort((a, b) => b - a);
 
   // ── Render ──────────────────────────────────────────────────────────
 
