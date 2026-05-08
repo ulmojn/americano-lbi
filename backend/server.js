@@ -396,19 +396,44 @@ function werePartnersInRound(id1, id2, matches, round) {
     });
 }
 
+function matchPlayedBefore(team1, team2, matches) {
+  const ids = (team) => new Set(team.map(p => p.id));
+  const t1 = ids(team1), t2 = ids(team2);
+  const eq = (a, b) => a.size === b.size && [...a].every(v => b.has(v));
+  return matches
+    .filter(m => m.completed)
+    .some(m => {
+      const mt1 = ids(m.team1), mt2 = ids(m.team2);
+      return (eq(t1, mt1) && eq(t2, mt2)) || (eq(t1, mt2) && eq(t2, mt1));
+    });
+}
+
 function pickMexicanoPairing(p, matches, currentRound) {
-  // 3 mulige parringer for 4 spillere — vælg den første uden makker-gentagelse
   const options = [
     { team1: [p[0], p[1]], team2: [p[2], p[3]] }, // naturlig rangorden
     { team1: [p[0], p[2]], team2: [p[1], p[3]] },
     { team1: [p[0], p[3]], team2: [p[1], p[2]] },
   ];
+
+  let best = options[0];
+  let bestScore = Infinity;
+
   for (const opt of options) {
-    const t1repeat = werePartnersInRound(opt.team1[0].id, opt.team1[1].id, matches, currentRound);
-    const t2repeat = werePartnersInRound(opt.team2[0].id, opt.team2[1].id, matches, currentRound);
-    if (!t1repeat && !t2repeat) return opt;
+    let score = 0;
+    // Straf for præcis samme kamp tidligere (højeste prioritet at undgå)
+    if (matchPlayedBefore(opt.team1, opt.team2, matches)) score += 4;
+    // Straf for samme makker som forrige runde
+    if (werePartnersInRound(opt.team1[0].id, opt.team1[1].id, matches, currentRound)) score += 1;
+    if (werePartnersInRound(opt.team2[0].id, opt.team2[1].id, matches, currentRound)) score += 1;
+
+    if (score < bestScore) {
+      bestScore = score;
+      best = opt;
+    }
+    if (bestScore === 0) break;
   }
-  return options[0]; // fallback hvis alle er gentagelser
+
+  return best;
 }
 
 function generateNextRound(players, matches, courts, tournamentType) {
