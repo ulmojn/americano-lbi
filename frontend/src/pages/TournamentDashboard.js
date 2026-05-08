@@ -215,6 +215,7 @@ export default function TournamentDashboard() {
           </div>
           <div className="text-xs text-gray-500 uppercase tracking-wider">
             {TYPE_LABELS[tournament.tournament_type]} • {tournament.courts} {tournament.courts === 1 ? 'bane' : 'baner'}
+            {tournament.pin && <span className="ml-2 text-[#D1F441] font-mono font-bold">PIN: {tournament.pin}</span>}
           </div>
         </div>
         {tournament.status === 'completed' ? (
