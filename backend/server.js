@@ -272,35 +272,50 @@ function generateMatches(players, courts, tournamentType, teams) {
   return matches;
 }
 
-// Team Americano: round-robin mellem faste hold via circle method
+// Team Americano: round-robin mellem faste hold via circle method.
+// Ved ulige antal hold tilføjes et midlertidigt BYE-hold så n bliver lige —
+// circle-metoden kræver lige n for at undgå duplikater.
+// BYE-kampe springes over; det rigtige hold har fridag den runde.
 function generateTeamAmericanoMatches(teams, courts) {
   const n = teams.length;
   if (n < 2) return [];
-  const effectiveCourts = Math.min(courts, Math.floor(n / 2));
-  const totalRounds = n % 2 === 0 ? n - 1 : n;
+
+  const BYE_ID = '__bye__';
+  const workTeams = n % 2 !== 0 ? [...teams, { id: BYE_ID }] : [...teams];
+  const m = workTeams.length; // altid lige
+  const totalRounds = m - 1;
   const matches = [];
 
-  const shuffled = [...teams].sort(() => Math.random() - 0.5);
+  const shuffled = [...workTeams].sort(() => Math.random() - 0.5);
   const rest = shuffled.slice(1);
 
   for (let round = 1; round <= totalRounds; round++) {
     const circle = [shuffled[0], ...rest];
 
-    for (let c = 0; c < effectiveCourts; c++) {
-      const t1Team = circle[c];
-      const t2Team = circle[n - 1 - c];
-      if (t1Team && t2Team && t1Team.id !== t2Team.id) {
-        matches.push({
-          id: uuidv4(),
-          round,
-          court: c + 1,
-          team1: [t1Team.player1, t1Team.player2],
-          team2: [t2Team.player1, t2Team.player2],
-          team1_score: null,
-          team2_score: null,
-          completed: false
-        });
+    // Saml alle reelle kampe denne runde (ingen BYE-deltagere)
+    const roundMatchups = [];
+    for (let c = 0; c < m / 2; c++) {
+      const t1 = circle[c];
+      const t2 = circle[m - 1 - c];
+      if (t1.id !== BYE_ID && t2.id !== BYE_ID) {
+        roundMatchups.push([t1, t2]);
       }
+    }
+
+    // Opret kampe op til bane-grænsen
+    const usedCourts = Math.min(courts, roundMatchups.length);
+    for (let c = 0; c < usedCourts; c++) {
+      const [t1Team, t2Team] = roundMatchups[c];
+      matches.push({
+        id: uuidv4(),
+        round,
+        court: c + 1,
+        team1: [t1Team.player1, t1Team.player2],
+        team2: [t2Team.player1, t2Team.player2],
+        team1_score: null,
+        team2_score: null,
+        completed: false
+      });
     }
 
     rest.unshift(rest.pop());
