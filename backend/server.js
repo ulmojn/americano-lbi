@@ -630,7 +630,9 @@ app.post('/api/tournaments', async (req, res) => {
       }));
 
       const players = uniqueIds.map(id => playerMap[id]).filter(Boolean);
-      const matches = generateTeamAmericanoMatches(teams, courts);
+      const matches = tournament_type === 'team_mexicano'
+        ? generateTeamMexicanoFirstRound(teams, courts)
+        : generateTeamAmericanoMatches(teams, courts);
       const tournamentId = uuidv4();
       const pin = generatePin();
 
