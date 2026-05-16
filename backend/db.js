@@ -42,7 +42,7 @@ async function initDatabase() {
       CREATE TABLE IF NOT EXISTS tournaments (
         id VARCHAR(36) PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
-        tournament_type ENUM('americano', 'mexicano', 'winners_court', 'team_americano') NOT NULL,
+        tournament_type ENUM('americano', 'mexicano', 'winners_court', 'team_americano', 'team_mexicano') NOT NULL,
         courts INT NOT NULL,
         players JSON NOT NULL,
         points_per_game INT DEFAULT 16,
@@ -72,10 +72,10 @@ async function initDatabase() {
     } catch (e) {
       if (e.code !== 'ER_DUP_FIELDNAME') throw e;
     }
-    // Migration: udvid tournament_type ENUM med team_americano
+    // Migration: udvid tournament_type ENUM med team_americano + team_mexicano
     try {
-      await connection.execute(`ALTER TABLE tournaments MODIFY COLUMN tournament_type ENUM('americano', 'mexicano', 'winners_court', 'team_americano') NOT NULL`);
-      console.log('✓ Migreret: team_americano tilføjet til ENUM');
+      await connection.execute(`ALTER TABLE tournaments MODIFY COLUMN tournament_type ENUM('americano', 'mexicano', 'winners_court', 'team_americano', 'team_mexicano') NOT NULL`);
+      console.log('✓ Migreret: team_americano + team_mexicano tilføjet til ENUM');
     } catch (e) {
       // Ignorér hvis allerede migreret
     }

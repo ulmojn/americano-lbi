@@ -13,6 +13,7 @@ const TYPES = [
   { value: 'mexicano', label: 'Mexicano', desc: 'Næste runde baseres på stilling' },
   { value: 'winners_court', label: 'Winners Court', desc: 'Vindere avancerer til bedste bane' },
   { value: 'team_americano', label: 'Team Americano', desc: 'Faste hold spiller round-robin mod hinanden' },
+  { value: 'team_mexicano', label: 'Team Mexicano', desc: 'Faste hold – næste runde baseres på stilling' },
 ];
 
 export default function TournamentSetup() {
@@ -130,15 +131,15 @@ export default function TournamentSetup() {
 
   const totalPlayers = selectedIds.size + newPlayers.length;
 
-  const isTeamAmericano = type === 'team_americano';
+  const isTeamFormat = type === 'team_americano' || type === 'team_mexicano';
   const teamCount = teamPairs.length;
   const submitDisabled = loading || totalPlayers < 4 ||
-    (isTeamAmericano && (teamCount < 2 || unpaired !== null || newPlayers.length > 0));
+    (isTeamFormat && (teamCount < 2 || unpaired !== null || newPlayers.length > 0));
 
   async function handleSubmit(e) {
     e.preventDefault();
     if (!name.trim()) return toast.error('Angiv et turneringsnavn');
-    if (isTeamAmericano) {
+    if (isTeamFormat) {
       if (newPlayers.length > 0) return toast.error('Tilføj nye spillere til spillerpuljen inden Team Americano');
       if (teamCount < 2) return toast.error('Mindst 2 hold kræves');
       if (unpaired) return toast.error('Alle spillere skal være i hold – ulige antal spillere');
@@ -149,7 +150,7 @@ export default function TournamentSetup() {
     try {
       const resolvedPoints = pointsPerGame === 'custom' ? parseInt(customPoints) || 16 : pointsPerGame;
 
-      if (isTeamAmericano) {
+      if (isTeamFormat) {
         const teams = teamPairs.map(([p1, p2]) => ({ player1_id: p1.id, player2_id: p2.id }));
         const { data } = await axios.post(`${API}/api/tournaments`, {
           name: name.trim(),
@@ -273,7 +274,7 @@ export default function TournamentSetup() {
           <div className="flex items-center justify-between mb-3">
             <label className="text-sm text-gray-400">Spillere</label>
             <span className={`text-xs font-medium ${totalPlayers >= 4 ? 'text-[#D1F441]' : 'text-gray-600'}`}>
-              {totalPlayers} valgt {courts > 0 && `(min. ${isTeamAmericano ? courts * 2 * 2 : courts * 4})`}
+              {totalPlayers} valgt {courts > 0 && `(min. ${isTeamFormat ? courts * 2 * 2 : courts * 4})`}
             </span>
           </div>
 
@@ -323,7 +324,7 @@ export default function TournamentSetup() {
           )}
 
           {/* Valgte spillere som chips */}
-          {!isTeamAmericano && (selectedIds.size > 0 || newPlayers.length > 0) && (
+          {!isTeamFormat && (selectedIds.size > 0 || newPlayers.length > 0) && (
             <div className="flex flex-wrap gap-2 mt-3">
               {participants.filter(p => selectedIds.has(p.id)).map(p => (
                 <span key={p.id} className="flex items-center gap-1 bg-[#D1F441]/10 border border-[#D1F441]/30 px-2 py-1 text-sm text-[#D1F441]">
@@ -342,7 +343,7 @@ export default function TournamentSetup() {
         </div>
 
         {/* Team Americano: holdopdeling */}
-        {isTeamAmericano && selectedIds.size > 0 && (
+        {isTeamFormat && selectedIds.size > 0 && (
           <div>
             <div className="flex items-center justify-between mb-3">
               <label className="text-sm text-gray-400">Hold</label>

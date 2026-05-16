@@ -244,6 +244,9 @@ function generateMatches(players, courts, tournamentType, teams) {
   if (tournamentType === 'team_americano') {
     return generateTeamAmericanoMatches(teams, courts);
   }
+  if (tournamentType === 'team_mexicano') {
+    return generateTeamMexicanoFirstRound(teams, courts);
+  }
 
   // Mexicano / Winners Court: generer kun første runde tilfældigt
   // (næste runder genereres dynamisk via generateNextRound)
@@ -270,6 +273,61 @@ function generateMatches(players, courts, tournamentType, teams) {
     });
   }
   return matches;
+}
+
+// Team Mexicano: første runde tilfældig, næste runder dynamisk efter stilling
+function generateTeamMexicanoFirstRound(teams, courts) {
+  const shuffled = [...teams].sort(() => Math.random() - 0.5);
+  const matches = [];
+  const used = new Set();
+  for (let court = 1; court <= courts; court++) {
+    const available = shuffled.filter(t => !used.has(t.id));
+    if (available.length < 2) break;
+    used.add(available[0].id);
+    used.add(available[1].id);
+    matches.push({
+      id: uuidv4(),
+      round: 1,
+      court,
+      team1: [available[0].player1, available[0].player2],
+      team2: [available[1].player1, available[1].player2],
+      team1_score: null,
+      team2_score: null,
+      completed: false
+    });
+  }
+  return matches;
+}
+
+function generateNextTeamRound(teams, matches, courts) {
+  const currentRound = Math.max(...matches.map(m => m.round), 0);
+  const standings = calculateTeamScoreboard(teams, matches);
+  const newMatches = [];
+  const used = new Set();
+
+  for (let court = 1; court <= courts; court++) {
+    const available = standings.filter(s => !used.has(s.id));
+    if (available.length < 2) break;
+    const t1Standing = available[0];
+    const t2Standing = available[1];
+    used.add(t1Standing.id);
+    used.add(t2Standing.id);
+    const t1Team = teams.find(t => t.id === t1Standing.id);
+    const t2Team = teams.find(t => t.id === t2Standing.id);
+    if (t1Team && t2Team) {
+      newMatches.push({
+        id: uuidv4(),
+        round: currentRound + 1,
+        court,
+        team1: [t1Team.player1, t1Team.player2],
+        team2: [t2Team.player1, t2Team.player2],
+        team1_score: null,
+        team2_score: null,
+        completed: false
+      });
+    }
+  }
+  return newMatches;
 }
 
 // Team Americano: round-robin mellem faste hold via circle method.
@@ -554,7 +612,7 @@ function generateNextRound(players, matches, courts, tournamentType) {
 app.post('/api/tournaments', async (req, res) => {
   const { name, tournament_type, courts, player_ids = [], manual_players = [], points_per_game = 16, teams: teamsInput = [] } = req.body;
   try {
-    if (tournament_type === 'team_americano') {
+    if (tournament_type === 'team_americano' || tournament_type === 'team_mexicano') {
       if (teamsInput.length < 2) return res.status(400).json({ detail: 'Mindst 2 hold kræves' });
 
       const allPlayerIds = teamsInput.flatMap(t => [t.player1_id, t.player2_id]).filter(Boolean);
@@ -714,7 +772,7 @@ app.get('/api/tournaments/:id/scoreboard', async (req, res) => {
 
     const teams = tournament.teams ? parseJSON(tournament.teams) : null;
     let standings;
-    if (tournament.tournament_type === 'team_americano' && teams) {
+    if (['team_americano', 'team_mexicano'].includes(tournament.tournament_type) && teams) {
       standings = calculateTeamScoreboard(teams, parsedMatches);
       // Berig med gennemsnits-ELO for hvert hold
       const teamPlayerIds = teams.flatMap(t => [t.player1?.id, t.player2?.id]).filter(Boolean);
@@ -828,6 +886,19 @@ app.put('/api/tournaments/:tournamentId/matches/:matchId/result', requireTournam
           'INSERT INTO matches (id, tournament_id, round, court, team1, team2, team1_score, team2_score, completed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
           [match.id, tournamentId, match.round, match.court, JSON.stringify(match.team1), JSON.stringify(match.team2), null, null, false]
         );
+      }
+    }
+
+    if (allCompleted && tournament.tournament_type === 'team_mexicano') {
+      const teams = parseJSON(tournament.teams);
+      if (teams) {
+        const newMatches = generateNextTeamRound(teams, parsedMatches, tournament.courts);
+        for (const match of newMatches) {
+          await pool.execute(
+            'INSERT INTO matches (id, tournament_id, round, court, team1, team2, team1_score, team2_score, completed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [match.id, tournamentId, match.round, match.court, JSON.stringify(match.team1), JSON.stringify(match.team2), null, null, false]
+          );
+        }
       }
     }
 

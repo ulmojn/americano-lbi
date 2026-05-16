@@ -5,7 +5,7 @@ import { ArrowLeft, Wrench } from '@phosphor-icons/react';
 import LbiLogo from '@/components/LbiLogo';
 
 const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
-const TYPE_LABELS = { americano: 'Americano', mexicano: 'Mexicano', winners_court: 'Winners Court', team_americano: 'Team Americano' };
+const TYPE_LABELS = { americano: 'Americano', mexicano: 'Mexicano', winners_court: 'Winners Court', team_americano: 'Team Americano', team_mexicano: 'Team Mexicano' };
 
 export default function ScoreboardView() {
   const { id } = useParams();
