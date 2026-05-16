@@ -210,7 +210,7 @@ export default function TournamentDashboard() {
   if (!tournament) return null;
 
   const rounds = groupByRound(tournament.matches || []);
-  const dynamicRounds = ['mexicano', 'winners_court'].includes(tournament.tournament_type);
+  const dynamicRounds = ['mexicano', 'winners_court', 'team_mexicano'].includes(tournament.tournament_type);
   const roundNumbers = Object.keys(rounds).map(Number).sort((a, b) => dynamicRounds ? b - a : a - b);
 
   // ── Render ──────────────────────────────────────────────────────────
