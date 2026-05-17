@@ -24,6 +24,7 @@ export default function TournamentDashboard() {
   const fingerprintRef = useRef(null);
   const [confirmComplete, setConfirmComplete] = useState(false);
   const [completing, setCompleting] = useState(false);
+  const [reopening, setReopening] = useState(false);
   const [tournamentToken, setTournamentToken] = useState(() => localStorage.getItem(`t_pin_${id}`));
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState('');
@@ -118,6 +119,19 @@ export default function TournamentDashboard() {
     if (pts && n !== '' && n > pts) n = pts;
     const t1 = (pts && n !== '') ? Math.max(0, pts - n) : '';
     setModalScores({ t1: t1 === '' ? '' : String(t1), t2: n === '' ? '' : n });
+  }
+
+  async function reopenTournament() {
+    setReopening(true);
+    try {
+      await axios.patch(`${API}/api/tournaments/${id}/reopen`, {}, { headers });
+      toast.success('Turnering genåbnet');
+      await fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Kunne ikke genåbne turnering');
+    } finally {
+      setReopening(false);
+    }
   }
 
   async function completeTournament() {
@@ -233,7 +247,10 @@ export default function TournamentDashboard() {
           </div>
         </div>
         {tournament.status === 'completed' ? (
-          <span className="text-xs font-mono font-bold text-gray-500 bg-[#1A1A1A] px-2 py-1 shrink-0">AFSLUTTET</span>
+          <button onClick={reopenTournament} disabled={reopening}
+            className="text-xs font-mono font-bold text-gray-500 bg-[#1A1A1A] px-2 py-1 shrink-0 hover:text-white hover:bg-[#2A2A2A] transition-colors disabled:opacity-50">
+            {reopening ? 'GENÅBNER...' : 'AFSLUTTET ↩'}
+          </button>
         ) : confirmComplete ? (
           <div className="flex items-center gap-2 shrink-0">
             <span className="text-xs text-gray-400">Er du sikker?</span>

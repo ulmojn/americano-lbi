@@ -777,6 +777,21 @@ app.patch('/api/tournaments/:id/complete', requireTournamentAccess, async (req, 
   }
 });
 
+app.patch('/api/tournaments/:id/reopen', requireTournamentAccess, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const [result] = await pool.execute(
+      "UPDATE tournaments SET status = 'active' WHERE id = ? AND status = 'completed'",
+      [id]
+    );
+    if (result.affectedRows === 0) return res.status(404).json({ detail: 'Turnering ikke fundet eller allerede aktiv' });
+    res.json({ message: 'Turnering genåbnet' });
+  } catch (err) {
+    console.error('Error reopening tournament:', err);
+    res.status(500).json({ detail: 'Database fejl' });
+  }
+});
+
 app.get('/api/tournaments/:id/scoreboard', async (req, res) => {
   const { id } = req.params;
   try {
