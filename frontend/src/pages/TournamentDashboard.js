@@ -162,7 +162,7 @@ export default function TournamentDashboard() {
       );
       toast.success('Score gemt');
       setScoreModal(null);
-      await fetchData();
+      await fetchData({ silent: true });
     } catch {
       toast.error('Kunne ikke gemme score');
     } finally {
