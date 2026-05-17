@@ -302,11 +302,32 @@ function generateTeamMexicanoFirstRound(teams, courts) {
 function generateNextTeamRound(teams, matches, courts) {
   const currentRound = Math.max(...matches.map(m => m.round), 0);
   const standings = calculateTeamScoreboard(teams, matches);
+  const ranked = [...standings];
+
+  // Hvis ulige antal hold: holdet der havde fridag SIDST må ikke få fridag igen.
+  // Find holdet der ikke spillede i forrige runde og flyt det væk fra sidstepladsen.
+  if (teams.length % 2 !== 0) {
+    const lastRoundPlayerIds = new Set(
+      matches.filter(m => m.round === currentRound)
+             .flatMap(m => [...m.team1, ...m.team2].map(p => p.id))
+    );
+    const byeLastRound = teams.find(t =>
+      !lastRoundPlayerIds.has(t.player1.id) && !lastRoundPlayerIds.has(t.player2.id)
+    );
+    if (byeLastRound) {
+      const byeIdx = ranked.findIndex(s => s.id === byeLastRound.id);
+      // Kun byt hvis holdet stadig ender sidst (og dermed ville få fridag igen)
+      if (byeIdx === ranked.length - 1 && ranked.length >= 2) {
+        [ranked[byeIdx], ranked[byeIdx - 1]] = [ranked[byeIdx - 1], ranked[byeIdx]];
+      }
+    }
+  }
+
   const newMatches = [];
   const used = new Set();
 
   for (let court = 1; court <= courts; court++) {
-    const available = standings.filter(s => !used.has(s.id));
+    const available = ranked.filter(s => !used.has(s.id));
     if (available.length < 2) break;
     const t1Standing = available[0];
     const t2Standing = available[1];
