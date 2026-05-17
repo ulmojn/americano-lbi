@@ -304,22 +304,22 @@ function generateNextTeamRound(teams, matches, courts) {
   const standings = calculateTeamScoreboard(teams, matches);
   const ranked = [...standings];
 
-  // Hvis ulige antal hold: holdet der havde fridag SIDST må ikke få fridag igen.
-  // Find holdet der ikke spillede i forrige runde og flyt det væk fra sidstepladsen.
+  // Ulige antal hold: fridag gives til det hold der har spillet FLEST kampe
+  // (det er deres "tur" til fridag). Ved lighed vælges det lavest rangerede hold.
+  // Dette sikrer at alle hold spiller lige mange kampe over tid.
   if (teams.length % 2 !== 0) {
-    const lastRoundPlayerIds = new Set(
-      matches.filter(m => m.round === currentRound)
-             .flatMap(m => [...m.team1, ...m.team2].map(p => p.id))
-    );
-    const byeLastRound = teams.find(t =>
-      !lastRoundPlayerIds.has(t.player1.id) && !lastRoundPlayerIds.has(t.player2.id)
-    );
-    if (byeLastRound) {
-      const byeIdx = ranked.findIndex(s => s.id === byeLastRound.id);
-      // Kun byt hvis holdet stadig ender sidst (og dermed ville få fridag igen)
-      if (byeIdx === ranked.length - 1 && ranked.length >= 2) {
-        [ranked[byeIdx], ranked[byeIdx - 1]] = [ranked[byeIdx - 1], ranked[byeIdx]];
+    const maxPlayed = Math.max(...ranked.map(s => s.played));
+    let byeIdx = -1;
+    let byeRank = -1;
+    ranked.forEach((s, i) => {
+      if (s.played === maxPlayed && s.rank > byeRank) {
+        byeRank = s.rank;
+        byeIdx = i;
       }
+    });
+    if (byeIdx !== -1) {
+      const [byeEntry] = ranked.splice(byeIdx, 1);
+      ranked.push(byeEntry); // flyt til sidst → holder fri
     }
   }
 
